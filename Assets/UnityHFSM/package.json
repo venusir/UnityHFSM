@@ -4,6 +4,7 @@
   "description": "A fast, tried-and-tested hierarchical finite state machine library for Unity, designed to be easy to use yet powerful without compromising performance.",
 
   "version": "2.3.0",
+  "unity": "2021.2",
   "license": "MIT",
   "keywords": ["fsm", "hierarchical", "state-machine"],
   "documentationUrl": "https://github.com/Inspiaaa/UnityHFSM",

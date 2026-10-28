@@ -17,6 +17,8 @@ Thanks to overloading, it minimises boilerplate code while still supporting **ge
 
 It has a special focus on the temporal aspects of state transitions, making it ideal for timing and synchronisation sensitive problems.
 
+> **Development notice:** This repository is now a Unity 6000.4.5f1 development project. The plugin source lives in `Assets/UnityHFSM/`; see [DEVELOPMENT.md](DEVELOPMENT.md) for setup, tests and packaging. For UPM installation, use the `upm` branch (`#upm`) or the exported package.
+
 ---
 
 ### Why use UnityHFSM?
@@ -109,7 +111,7 @@ To add OpenUPM to your project:
 <details>
 <summary>Add from GitHub | <em>no updates through PackMan</em></summary>
 
-You can also add it directly from GitHub on Unity 2019.4+. Note that you won't be able to receive updates through Package Manager this way, you'll have to update manually.
+You can also add it directly from GitHub on Unity 2021.2+. Note that you won't be able to receive updates through Package Manager this way, you'll have to update manually.
 
 - Open Package Manager (<kbd>Window</kbd> > <kbd>Package Manager</kbd>)
 - Click <kbd>+</kbd>
@@ -957,7 +959,7 @@ Here are a couple of tips and tricks you can use to debug complex state machines
 
 # Development
 
-If you want to develop new code for UnityHFSM or contribute to the project, you can take a look at the [development wiki page](https://github.com/Inspiaaa/UnityHFSM/wiki/Development). It gives you a brief introduction to the project file structure and a short guide on how to run the unit tests.
+If you want to develop UnityHFSM itself, open this repository as a Unity 6000.4.5f1 project. The plugin source is in `Assets/UnityHFSM/`, the EditMode tests are in `Assets/UnityHFSM/Tests/Editor/`, and the helper scripts live in `Tools/`. See [DEVELOPMENT.md](DEVELOPMENT.md) for the project layout, test commands and UPM export flow.
 
 ---
 

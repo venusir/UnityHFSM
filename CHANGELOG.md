@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- The repository is now a Unity 6000.4.5f1 development project using the standard `Runtime/`, `Editor/`, `Tests/Editor/`, `Samples/` and `Documentation~/` layout.
+- `HfsmAnimatorGraph` moved from the `UnityHFSM` runtime assembly to the `UnityHFSM.Editor` assembly. Custom editor assembly definitions that use it must reference `UnityHFSM.Editor`.
+
 ## 2.3
 
 ### Added

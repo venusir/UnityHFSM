@@ -1,0 +1,5 @@
+{
+  "name": "UnityHFSM.Editor",
+  "references": ["UnityHFSM"],
+  "includePlatforms": ["Editor"]
+}

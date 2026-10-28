@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Added
+
+- Optional Animator-style graph editor: `StateMachineGraphAsset`, GraphView editing for states/sub-state machines/Any State/Entry/Exit, blackboard parameters (Float/Int/Bool/Trigger), transition conditions, `StateBehaviour` assets, `StateMachineRunner`, runtime highlighting/pause/step/rebuild, and JSON import/export.
+- New additive runtime assembly `UnityHFSM.Graph` and editor assembly `UnityHFSM.Graph.Editor`. The existing code-first API is unchanged.
+
 ### Changed
 
 - The repository is now a Unity 6000.4.5f1 development project using the standard `Runtime/`, `Editor/`, `Tests/Editor/`, `Samples/` and `Documentation~/` layout.

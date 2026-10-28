@@ -127,6 +127,18 @@ You can also add it directly from GitHub on Unity 2021.2+. Note that you won't b
 
 ---
 
+## Visual State Machine Editor
+
+The repository includes an optional Animator-style graph editor built on UnityHFSM. The existing code-first API remains fully supported and independent of this layer.
+
+- Create a graph asset via **Assets > Create > UnityHFSM > State Machine Graph**.
+- Open it with **Tools > UnityHFSM > State Machine Editor**.
+- Add states/sub-state machines, transitions, blackboard parameters (Float/Int/Bool/Trigger), conditions and `StateBehaviour` assets.
+- Add a `StateMachineRunner` component to a GameObject, assign the graph, and enter Play Mode to see active/pending highlights, blackboard values and the transition log. Pause/Step/Rebuild are available in the editor window.
+- Export/Import JSON from the toolbar for backup or transfer.
+
+The graph layer lives in `UnityHFSM.Graph` and `UnityHFSM.Graph.Editor` and is additive; see [DEVELOPMENT.md](DEVELOPMENT.md). Animation clips, blend trees, avatar masks, layers and transition blend durations are out of scope in this version.
+
 ## Example
 
 ## Simple State Machine

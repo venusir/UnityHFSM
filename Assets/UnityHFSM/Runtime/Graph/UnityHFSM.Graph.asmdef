@@ -1,0 +1,9 @@
+{
+  "name": "UnityHFSM.Graph",
+  "references": ["UnityHFSM"],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "autoReferenced": true,
+  "noEngineReferences": false
+}

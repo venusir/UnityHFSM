@@ -1,0 +1,9 @@
+{
+  "name": "UnityHFSM.Graph.Editor",
+  "references": ["UnityHFSM", "UnityHFSM.Graph"],
+  "includePlatforms": ["Editor"],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "autoReferenced": true,
+  "noEngineReferences": false
+}

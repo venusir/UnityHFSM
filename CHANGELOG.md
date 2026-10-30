@@ -4,11 +4,16 @@
 
 ### Added
 
-- Optional Animator-style graph editor: `StateMachineGraphAsset`, GraphView editing for states/sub-state machines/Any State/Entry/Exit, blackboard parameters (Float/Int/Bool/Trigger), transition conditions, `StateBehaviour` assets, `StateMachineRunner`, runtime highlighting/pause/step/rebuild, and JSON import/export.
+- Optional Animator-style graph editor: `StateMachineGraphAsset`, GraphView editing for states/sub-state machines/Any State/Entry/Exit, blackboard parameters (Float/Int/Bool/Trigger), transition conditions, `StateBehaviour` assets, `StateMachineRunner`, and runtime highlighting/pause/step/rebuild.
+- The graph editor follows the selected GameObject's `StateMachineRunner`, with an Animator-style lock toggle. Selections without a runner or graph keep the current graph and show an inline hint.
+- Animator-style graph creation: right-click the canvas for **Create State** and **Create Sub-State Machine**.
+- The blackboard is now a compact **Parameters** panel: a **+** menu adds Float/Int/Bool/Trigger parameters, rows edit name and value inline, and right-click deletes a row. Parameter types are fixed after creation.
 - New additive runtime assembly `UnityHFSM.Graph` and editor assembly `UnityHFSM.Graph.Editor`. The existing code-first API is unchanged.
 
 ### Changed
 
+- Reworked the graph window hierarchy: removed the top toolbar (**Graph** object field, Frame/Save/Validate, full-width follow status), moved the breadcrumb, **Lock** and a compact follow hint into a graph header band, added uniform section headers and 1px separators for Parameters, Inspector, Graph, Validation and Runtime, and moved framing to the canvas context menu (**Frame All**).
+- Removed the **Add State** / **Add Sub-State Machine** toolbar buttons; creation now lives in the graph context menu. Replaced the blackboard rows with the Parameters panel.
 - The repository is now a Unity 6000.4.5f1 development project using the standard `Runtime/`, `Editor/`, `Tests/Editor/`, `Samples/` and `Documentation~/` layout.
 - `HfsmAnimatorGraph` moved from the `UnityHFSM` runtime assembly to the `UnityHFSM.Editor` assembly. Custom editor assembly definitions that use it must reference `UnityHFSM.Editor`.
 

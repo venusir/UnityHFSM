@@ -132,6 +132,30 @@ namespace UnityHFSM.Graph.Tests
                 controller.FindTransition(transitionId).conditions[0].comparison);
         }
 
+        [Test]
+        public void AddParameterWithTypeCreatesRequestedType()
+        {
+            string parameterId = controller.AddParameter(BlackboardParameterType.Trigger);
+
+            Assert.IsFalse(string.IsNullOrEmpty(parameterId));
+            Assert.AreEqual(1, asset.Graph.parameters.Count);
+
+            ParameterDef parameter = asset.Graph.parameters[0];
+            Assert.AreEqual(parameterId, parameter.id);
+            Assert.AreEqual(BlackboardParameterType.Trigger, parameter.type);
+            Assert.AreEqual("Parameter", parameter.name);
+            Assert.IsFalse(parameter.defaultBool);
+        }
+
+        [Test]
+        public void AddParameterWithoutTypeStillDefaultsToFloat()
+        {
+            controller.AddParameter();
+
+            Assert.AreEqual(1, asset.Graph.parameters.Count);
+            Assert.AreEqual(BlackboardParameterType.Float, asset.Graph.parameters[0].type);
+        }
+
         private int CountStates(string machineId)
         {
             int count = 0;

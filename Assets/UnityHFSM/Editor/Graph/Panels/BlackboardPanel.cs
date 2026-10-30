@@ -1,4 +1,3 @@
-using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -8,35 +7,38 @@ namespace UnityHFSM.Graph.Editor
     {
         private readonly StateMachineGraphWindow window;
         private readonly ScrollView list;
+        private readonly Button addButton;
 
         public BlackboardPanel(StateMachineGraphWindow window)
         {
             this.window = window;
             style.width = 250f;
-            style.borderRightWidth = 1f;
-            style.borderRightColor = new StyleColor(new Color(0.25f, 0.25f, 0.25f));
-            style.paddingLeft = 6f;
-            style.paddingRight = 6f;
-            style.paddingTop = 6f;
+            GraphEditorStyles.SetBorder(this, GraphEditorStyles.SeparatorColor, rightWidth: 1f);
 
-            var title = new Label("Blackboard");
-            title.style.unityFontStyleAndWeight = FontStyle.Bold;
-            title.style.marginBottom = 6f;
-            Add(title);
+            var header = GraphEditorStyles.CreateHeaderBand("Parameters", out VisualElement headerRight);
+            Add(header);
+
+            addButton = new Button(ShowAddMenu) { text = "+" };
+            addButton.tooltip = "Add parameter";
+            addButton.style.width = 22f;
+            addButton.style.height = 18f;
+            addButton.style.marginLeft = 0f;
+            addButton.style.marginRight = 0f;
+            addButton.style.marginTop = 0f;
+            addButton.style.marginBottom = 0f;
+            headerRight.Add(addButton);
+
+            var body = new VisualElement();
+            body.style.flexGrow = 1f;
+            body.style.minHeight = 0f;
+            body.style.paddingLeft = 6f;
+            body.style.paddingRight = 6f;
+            body.style.paddingTop = 6f;
+            Add(body);
 
             list = new ScrollView();
             list.style.flexGrow = 1f;
-            Add(list);
-
-            var addButton = new Button(() =>
-            {
-                window.Controller?.AddParameter();
-            })
-            {
-                text = "Add Parameter",
-            };
-            addButton.style.marginTop = 6f;
-            Add(addButton);
+            body.Add(list);
 
             Refresh();
         }
@@ -45,7 +47,10 @@ namespace UnityHFSM.Graph.Editor
         {
             list.Clear();
 
-            if (window.Controller == null || window.Controller.Model == null)
+            bool hasController = window.Controller != null && window.Controller.Model != null;
+            addButton.SetEnabled(hasController);
+
+            if (!hasController)
             {
                 list.Add(new Label("No graph asset selected."));
                 return;
@@ -54,7 +59,7 @@ namespace UnityHFSM.Graph.Editor
             GraphModel model = window.Controller.Model;
             if (model.parameters.Count == 0)
             {
-                list.Add(new Label("No parameters. Add one to write conditions."));
+                list.Add(new Label("No parameters. Use + to add one."));
                 return;
             }
 
@@ -66,42 +71,57 @@ namespace UnityHFSM.Graph.Editor
             }
         }
 
+        private void ShowAddMenu()
+        {
+            if (window.Controller == null || window.Controller.Model == null)
+                return;
+
+            var menu = new GenericDropdownMenu();
+            menu.AddItem("Float", false, () => AddParameter(BlackboardParameterType.Float));
+            menu.AddItem("Int", false, () => AddParameter(BlackboardParameterType.Int));
+            menu.AddItem("Bool", false, () => AddParameter(BlackboardParameterType.Bool));
+            menu.AddItem("Trigger", false, () => AddParameter(BlackboardParameterType.Trigger));
+            menu.DropDown(addButton.worldBound, addButton, DropdownMenuSizeMode.Content);
+        }
+
+        private void AddParameter(BlackboardParameterType type)
+        {
+            window.Controller?.AddParameter(type);
+        }
+
         private VisualElement CreateRow(ParameterDef parameter)
         {
             var row = new VisualElement();
-            row.style.marginBottom = 8f;
-            row.style.paddingBottom = 6f;
-            row.style.borderBottomWidth = 1f;
-            row.style.borderBottomColor = new StyleColor(new Color(0.22f, 0.22f, 0.22f));
+            row.style.flexDirection = FlexDirection.Row;
+            row.style.alignItems = Align.Center;
+            row.style.minHeight = 22f;
+            row.style.paddingLeft = 2f;
+            row.style.paddingRight = 2f;
+            GraphEditorStyles.SetBorder(row, GraphEditorStyles.SeparatorColor, bottomWidth: 1f);
+            row.tooltip = "Right-click to delete.";
 
-            var nameField = new TextField("Name")
+            var nameField = new TextField
             {
                 value = parameter.name,
                 isDelayed = true,
             };
+            nameField.style.flexGrow = 1f;
+            nameField.style.flexShrink = 1f;
+            nameField.style.marginRight = 4f;
             nameField.RegisterValueChangedCallback(evt =>
-            {
-                window.Controller?.RenameParameter(parameter.id, evt.newValue);
-            });
+                window.Controller?.RenameParameter(parameter.id, evt.newValue));
             row.Add(nameField);
-
-            var typeField = new EnumField("Type", parameter.type);
-            typeField.RegisterValueChangedCallback(evt =>
-            {
-                if (evt.newValue is BlackboardParameterType type)
-                    window.Controller?.SetParameterType(parameter.id, type);
-            });
-            row.Add(typeField);
 
             switch (parameter.type)
             {
                 case BlackboardParameterType.Float:
                 {
-                    var valueField = new FloatField("Default")
+                    var valueField = new FloatField
                     {
                         value = parameter.defaultFloat,
                         isDelayed = true,
                     };
+                    valueField.style.width = 64f;
                     valueField.RegisterValueChangedCallback(evt =>
                         window.Controller?.SetParameterFloatDefault(parameter.id, evt.newValue));
                     row.Add(valueField);
@@ -110,11 +130,12 @@ namespace UnityHFSM.Graph.Editor
 
                 case BlackboardParameterType.Int:
                 {
-                    var valueField = new IntegerField("Default")
+                    var valueField = new IntegerField
                     {
                         value = parameter.defaultInt,
                         isDelayed = true,
                     };
+                    valueField.style.width = 64f;
                     valueField.RegisterValueChangedCallback(evt =>
                         window.Controller?.SetParameterIntDefault(parameter.id, evt.newValue));
                     row.Add(valueField);
@@ -122,28 +143,35 @@ namespace UnityHFSM.Graph.Editor
                 }
 
                 case BlackboardParameterType.Bool:
-                case BlackboardParameterType.Trigger:
                 {
-                    var valueField = new Toggle("Default")
+                    var valueField = new Toggle
                     {
                         value = parameter.defaultBool,
                     };
+                    valueField.style.width = 20f;
                     valueField.RegisterValueChangedCallback(evt =>
                         window.Controller?.SetParameterBoolDefault(parameter.id, evt.newValue));
                     row.Add(valueField);
                     break;
                 }
+
+                case BlackboardParameterType.Trigger:
+                {
+                    var typeLabel = new Label("Trigger");
+                    typeLabel.style.opacity = 0.6f;
+                    typeLabel.style.fontSize = 10f;
+                    typeLabel.style.unityFontStyleAndWeight = FontStyle.Italic;
+                    row.Add(typeLabel);
+                    break;
+                }
             }
 
-            var deleteButton = new Button(() =>
+            row.AddManipulator(new ContextualMenuManipulator(evt =>
             {
-                window.Controller?.DeleteParameter(parameter.id);
-            })
-            {
-                text = "Delete",
-            };
-            deleteButton.style.marginTop = 4f;
-            row.Add(deleteButton);
+                evt.menu.AppendAction("Delete", _ =>
+                    window.Controller?.DeleteParameter(parameter.id));
+            }));
+
             return row;
         }
     }

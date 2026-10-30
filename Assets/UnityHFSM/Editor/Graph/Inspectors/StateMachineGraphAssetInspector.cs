@@ -48,15 +48,6 @@ namespace UnityHFSM.Graph.Editor
 
             if (GUILayout.Button("Open State Machine Editor"))
                 StateMachineGraphWindow.OpenAsset(asset);
-
-            if (GUILayout.Button("Export JSON"))
-                GraphJsonEditorIO.Export(asset);
-
-            if (GUILayout.Button("Import JSON"))
-            {
-                if (GraphJsonEditorIO.Import(asset))
-                    Repaint();
-            }
         }
 
         [OnOpenAsset]

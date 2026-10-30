@@ -14,6 +14,9 @@ namespace UnityHFSM.Graph.Editor
     /// </summary>
     public sealed class StateMachineGraphView : GraphView
     {
+        private static readonly Vector2 StateNodeSize = new Vector2(180f, 100f);
+        private static readonly Vector2 PseudoNodeSize = new Vector2(130f, 60f);
+
         private readonly Dictionary<string, StateGraphNode> stateNodesById =
             new Dictionary<string, StateGraphNode>(StringComparer.Ordinal);
 
@@ -66,9 +69,9 @@ namespace UnityHFSM.Graph.Editor
             anyStateNode = new PseudoGraphNode(PseudoNodeKind.AnyState, machineId, this, true);
             exitNode = new PseudoGraphNode(PseudoNodeKind.Exit, machineId, this, !isRoot);
 
-            entryNode.SetPosition(new Rect(machine.entryPosition, new Vector2(130f, 60f)));
-            anyStateNode.SetPosition(new Rect(machine.anyStatePosition, new Vector2(130f, 60f)));
-            exitNode.SetPosition(new Rect(machine.exitPosition, new Vector2(130f, 60f)));
+            entryNode.SetPosition(new Rect(machine.entryPosition, PseudoNodeSize));
+            anyStateNode.SetPosition(new Rect(machine.anyStatePosition, PseudoNodeSize));
+            exitNode.SetPosition(new Rect(machine.exitPosition, PseudoNodeSize));
 
             AddElement(entryNode);
             AddElement(anyStateNode);
@@ -89,7 +92,7 @@ namespace UnityHFSM.Graph.Editor
                     OpenSubMachine,
                     this);
 
-                node.SetPosition(new Rect(state.position, new Vector2(180f, 100f)));
+                node.SetPosition(new Rect(state.position, StateNodeSize));
                 AddElement(node);
                 stateNodesById[state.id] = node;
             }
@@ -158,6 +161,95 @@ namespace UnityHFSM.Graph.Editor
         public void FrameGraph()
         {
             FrameAll();
+        }
+
+        public override void BuildContextualMenu(ContextualMenuPopulateEvent evt)
+        {
+            if (evt.target is GraphView)
+            {
+                evt.menu.AppendAction("Frame All", _ => FrameGraph());
+                evt.menu.AppendSeparator();
+
+                bool canCreate = Controller != null && !string.IsNullOrEmpty(CurrentMachineId);
+                Vector2 position = canCreate
+                    ? contentViewContainer.WorldToLocal(evt.mousePosition) - StateNodeSize * 0.5f
+                    : Vector2.zero;
+
+                evt.menu.AppendAction(
+                    "Create State",
+                    _ => CreateStateAt(position),
+                    canCreate ? DropdownMenuAction.Status.Normal : DropdownMenuAction.Status.Disabled);
+
+                evt.menu.AppendAction(
+                    "Create Sub-State Machine",
+                    _ => CreateSubMachineAt(position),
+                    canCreate ? DropdownMenuAction.Status.Normal : DropdownMenuAction.Status.Disabled);
+
+                evt.menu.AppendSeparator();
+            }
+
+            evt.menu.AppendAction(
+                "Delete",
+                _ => DeleteSelection(),
+                HasDeletableSelection()
+                    ? DropdownMenuAction.Status.Normal
+                    : DropdownMenuAction.Status.Disabled);
+        }
+
+        public string CreateStateAt(Vector2 position)
+        {
+            if (Controller == null || string.IsNullOrEmpty(CurrentMachineId))
+                return null;
+
+            string stateId = Controller.AddState(CurrentMachineId, position);
+            SelectCreatedNode(stateId);
+            return stateId;
+        }
+
+        public string CreateSubMachineAt(Vector2 position)
+        {
+            if (Controller == null || string.IsNullOrEmpty(CurrentMachineId))
+                return null;
+
+            string hostStateId = Controller.AddSubMachine(CurrentMachineId, position);
+            SelectCreatedNode(hostStateId);
+            return hostStateId;
+        }
+
+        private void SelectCreatedNode(string stateId)
+        {
+            if (string.IsNullOrEmpty(stateId))
+                return;
+
+            if (!stateNodesById.TryGetValue(stateId, out StateGraphNode node))
+            {
+                RefreshGraph();
+                stateNodesById.TryGetValue(stateId, out node);
+            }
+
+            if (node == null)
+                return;
+
+            ClearSelection();
+            AddToSelection(node);
+        }
+
+        private bool HasDeletableSelection()
+        {
+            for (int i = 0; i < selection.Count; i++)
+            {
+                if (selection[i] is StateGraphNode)
+                    return true;
+
+                if (selection[i] is TransitionEdge edge
+                    && !edge.IsEntryEdge
+                    && !string.IsNullOrEmpty(edge.TransitionId))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         public void CreateConnection(Port outputPort, Port inputPort)

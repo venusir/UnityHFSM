@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEditor.Experimental.GraphView;
-using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -10,14 +9,17 @@ namespace UnityHFSM.Graph.Editor
 {
     public sealed class StateMachineGraphWindow : EditorWindow
     {
-        private StateMachineGraphAsset asset;
+        [SerializeField] private StateMachineGraphAsset asset;
+        [SerializeField] private StateMachineRunner followedRunner;
+        [SerializeField] private bool selectionLocked;
         private GraphEditorController controller;
         private StateMachineGraphView graphView;
         private BlackboardPanel blackboardPanel;
         private InspectorPanel inspectorPanel;
         private ValidationPanel validationPanel;
         private RuntimePanel runtimePanel;
-        private ObjectField assetField;
+        private Toggle lockToggle;
+        private Label followStatus;
         private VisualElement breadcrumb;
 
         private string currentMachineId;
@@ -33,7 +35,7 @@ namespace UnityHFSM.Graph.Editor
         public static void OpenWindow()
         {
             var window = GetWindow<StateMachineGraphWindow>("UnityHFSM Graph");
-            window.TryUseSelection();
+            window.RestoreOrFollowSelection();
             window.Show();
         }
 
@@ -57,7 +59,7 @@ namespace UnityHFSM.Graph.Editor
                 controller.Changed += OnControllerChanged;
             }
 
-            TryUseSelection();
+            RestoreOrFollowSelection();
             RefreshAll();
         }
 
@@ -78,41 +80,6 @@ namespace UnityHFSM.Graph.Editor
 
             rootVisualElement.style.flexDirection = FlexDirection.Column;
 
-            var toolbar = new VisualElement();
-            toolbar.style.flexDirection = FlexDirection.Row;
-            toolbar.style.flexWrap = Wrap.Wrap;
-            toolbar.style.paddingLeft = 6f;
-            toolbar.style.paddingRight = 6f;
-            toolbar.style.paddingTop = 4f;
-            toolbar.style.paddingBottom = 4f;
-            rootVisualElement.Add(toolbar);
-
-            assetField = new ObjectField("Graph")
-            {
-                objectType = typeof(StateMachineGraphAsset),
-                allowSceneObjects = false,
-            };
-            assetField.style.width = 280f;
-            assetField.RegisterValueChangedCallback(evt =>
-                LoadAsset(evt.newValue as StateMachineGraphAsset));
-            toolbar.Add(assetField);
-
-            toolbar.Add(new Button(AddState) { text = "Add State" });
-            toolbar.Add(new Button(AddSubMachine) { text = "Add Sub-State Machine" });
-            toolbar.Add(new Button(() => graphView.FrameGraph()) { text = "Frame" });
-            toolbar.Add(new Button(Save) { text = "Save" });
-            toolbar.Add(new Button(Validate) { text = "Validate" });
-            toolbar.Add(new Button(ExportJson) { text = "Export JSON" });
-            toolbar.Add(new Button(ImportJson) { text = "Import JSON" });
-
-            breadcrumb = new VisualElement();
-            breadcrumb.style.flexDirection = FlexDirection.Row;
-            breadcrumb.style.flexWrap = Wrap.Wrap;
-            breadcrumb.style.paddingLeft = 8f;
-            breadcrumb.style.paddingRight = 8f;
-            breadcrumb.style.paddingBottom = 4f;
-            rootVisualElement.Add(breadcrumb);
-
             var main = new VisualElement();
             main.style.flexDirection = FlexDirection.Row;
             main.style.flexGrow = 1f;
@@ -121,18 +88,56 @@ namespace UnityHFSM.Graph.Editor
             blackboardPanel = new BlackboardPanel(this);
             main.Add(blackboardPanel);
 
+            var graphColumn = new VisualElement();
+            graphColumn.style.flexDirection = FlexDirection.Column;
+            graphColumn.style.flexGrow = 1f;
+            graphColumn.style.minWidth = 0f;
+            main.Add(graphColumn);
+
+            var graphHeader = GraphEditorStyles.CreateHeaderBand(
+                out breadcrumb,
+                out VisualElement graphHeaderRight);
+            graphColumn.Add(graphHeader);
+
+            followStatus = GraphEditorStyles.CreateStatusLabel();
+            followStatus.style.display = DisplayStyle.None;
+            graphHeaderRight.Add(followStatus);
+
+            lockToggle = new Toggle("Lock") { value = selectionLocked };
+            lockToggle.tooltip = "Keep the current graph when the selection changes.";
+            lockToggle.style.height = 18f;
+            lockToggle.style.marginLeft = 4f;
+            lockToggle.style.marginRight = 0f;
+            lockToggle.style.marginTop = 0f;
+            lockToggle.style.marginBottom = 0f;
+            lockToggle.style.flexShrink = 0f;
+            lockToggle.RegisterValueChangedCallback(evt =>
+            {
+                selectionLocked = evt.newValue;
+                if (selectionLocked)
+                {
+                    UpdateFollowStatus();
+                }
+                else
+                {
+                    TryFollowSelection();
+                }
+            });
+            graphHeaderRight.Add(lockToggle);
+
             graphView = new StateMachineGraphView();
             graphView.style.flexGrow = 1f;
             graphView.OpenSubMachineRequested = SetCurrentMachine;
-            main.Add(graphView);
+            graphColumn.Add(graphView);
 
             inspectorPanel = new InspectorPanel(this);
             main.Add(inspectorPanel);
 
             var bottom = new VisualElement();
             bottom.style.flexDirection = FlexDirection.Row;
-            bottom.style.minHeight = 190f;
-            bottom.style.maxHeight = 230f;
+            bottom.style.minHeight = 210f;
+            bottom.style.maxHeight = 260f;
+            GraphEditorStyles.SetBorder(bottom, GraphEditorStyles.SeparatorColor, topWidth: 1f);
             rootVisualElement.Add(bottom);
 
             validationPanel = new ValidationPanel(this);
@@ -144,11 +149,19 @@ namespace UnityHFSM.Graph.Editor
             bottom.Add(runtimePanel);
         }
 
-        private void LoadAsset(StateMachineGraphAsset value)
+        private void LoadAsset(StateMachineGraphAsset value, StateMachineRunner sourceRunner = null)
         {
-            if (value == asset)
+            if (value == asset && controller != null)
             {
+                if (sourceRunner != null)
+                    followedRunner = sourceRunner;
+
                 RefreshAll();
+
+                if (followedRunner != null)
+                    runtimePanel?.BindRunner(followedRunner);
+
+                UpdateFollowStatus();
                 return;
             }
 
@@ -156,8 +169,8 @@ namespace UnityHFSM.Graph.Editor
                 controller.Changed -= OnControllerChanged;
 
             asset = value;
+            followedRunner = sourceRunner;
             controller = asset != null ? new GraphEditorController(asset) : null;
-            assetField?.SetValueWithoutNotify(asset);
 
             graphView.Controller = controller;
             graphView.OpenSubMachineRequested = SetCurrentMachine;
@@ -174,6 +187,11 @@ namespace UnityHFSM.Graph.Editor
             }
 
             RefreshAll();
+
+            if (followedRunner != null)
+                runtimePanel?.BindRunner(followedRunner);
+
+            UpdateFollowStatus();
             graphView.FrameGraph();
         }
 
@@ -216,74 +234,6 @@ namespace UnityHFSM.Graph.Editor
             graphView.FrameGraph();
             inspectorPanel.ShowMachine();
             UpdateBreadcrumb();
-        }
-
-        private void AddState()
-        {
-            if (controller == null || string.IsNullOrEmpty(currentMachineId))
-                return;
-
-            int count = CountStates(currentMachineId);
-            var position = new Vector2(120f + (count % 4) * 210f, 70f + (count / 4) * 130f);
-            string stateId = controller.AddState(currentMachineId, position);
-            if (!string.IsNullOrEmpty(stateId))
-                inspectorPanel.ShowState(stateId);
-        }
-
-        private void AddSubMachine()
-        {
-            if (controller == null || string.IsNullOrEmpty(currentMachineId))
-                return;
-
-            int count = CountStates(currentMachineId);
-            var position = new Vector2(120f + (count % 4) * 210f, 70f + (count / 4) * 130f);
-            string stateId = controller.AddSubMachine(currentMachineId, position);
-            if (!string.IsNullOrEmpty(stateId))
-                inspectorPanel.ShowState(stateId);
-        }
-
-        private int CountStates(string machineId)
-        {
-            int count = 0;
-            GraphModel model = controller.Model;
-
-            for (int i = 0; i < model.states.Count; i++)
-            {
-                StateDef state = model.states[i];
-                if (state != null && state.machineId == machineId)
-                    count++;
-            }
-
-            return count;
-        }
-
-        private void Save()
-        {
-            if (asset == null)
-                return;
-
-            EditorUtility.SetDirty(asset);
-            AssetDatabase.SaveAssets();
-        }
-
-        private void Validate()
-        {
-            validationPanel.Refresh();
-        }
-
-        private void ExportJson()
-        {
-            if (asset != null)
-                GraphJsonEditorIO.Export(asset);
-        }
-
-        private void ImportJson()
-        {
-            if (asset == null)
-                return;
-
-            if (GraphJsonEditorIO.Import(asset))
-                RefreshAll();
         }
 
         private void OnEditorUpdate()
@@ -367,21 +317,22 @@ namespace UnityHFSM.Graph.Editor
 
             if (chain.Count == 0)
             {
-                breadcrumb.Add(new Label("No machine selected."));
+                breadcrumb.Add(GraphEditorStyles.CreateMutedLabel("No machine selected."));
                 return;
             }
 
             for (int i = 0; i < chain.Count; i++)
             {
                 if (i > 0)
-                    breadcrumb.Add(new Label(">"));
+                    breadcrumb.Add(GraphEditorStyles.CreateBreadcrumbSeparator());
 
                 MachineDef machine = chain[i];
                 string machineId = machine.id;
-                var button = new Button(() => SetCurrentMachine(machineId))
-                {
-                    text = string.IsNullOrEmpty(machine.name) ? "(unnamed)" : machine.name,
-                };
+                string displayName = string.IsNullOrEmpty(machine.name) ? "(unnamed)" : machine.name;
+                Button button = GraphEditorStyles.CreateBreadcrumbButton(
+                    displayName,
+                    () => SetCurrentMachine(machineId));
+                button.tooltip = machine.name;
 
                 if (i == chain.Count - 1)
                     button.style.unityFontStyleAndWeight = FontStyle.Bold;
@@ -407,10 +358,98 @@ namespace UnityHFSM.Graph.Editor
             graphView?.ClearRuntimeHighlight();
         }
 
-        private void TryUseSelection()
+        private void RestoreOrFollowSelection()
+        {
+            if (selectionLocked)
+            {
+                if (asset != null)
+                    LoadAsset(asset, followedRunner);
+                else
+                    UpdateFollowStatus();
+
+                return;
+            }
+
+            if (asset != null && controller == null)
+                LoadAsset(asset, followedRunner);
+
+            TryFollowSelection();
+        }
+
+        private void OnSelectionChange()
+        {
+            if (graphView == null)
+                return;
+
+            if (selectionLocked)
+            {
+                UpdateFollowStatus();
+                return;
+            }
+
+            TryFollowSelection();
+        }
+
+        private void TryFollowSelection()
         {
             if (Selection.activeObject is StateMachineGraphAsset selectedAsset)
+            {
                 LoadAsset(selectedAsset);
+                return;
+            }
+
+            StateMachineRunner runner = Selection.activeGameObject != null
+                ? Selection.activeGameObject.GetComponent<StateMachineRunner>()
+                : null;
+
+            if (runner == null)
+            {
+                SetFollowStatus("No StateMachineRunner selected.");
+                return;
+            }
+
+            if (runner.Graph == null)
+            {
+                SetFollowStatus("Selected Runner has no graph.");
+                return;
+            }
+
+            LoadAsset(runner.Graph, runner);
+        }
+
+        private void UpdateFollowStatus()
+        {
+            if (selectionLocked)
+            {
+                SetFollowStatus(asset != null ? "Locked: " + asset.name : "Locked.");
+                return;
+            }
+
+            if (asset == null)
+            {
+                SetFollowStatus("No graph asset selected.");
+                return;
+            }
+
+            if (followedRunner != null)
+            {
+                SetFollowStatus("Following: " + followedRunner.gameObject.name);
+                return;
+            }
+
+            SetFollowStatus("Graph: " + asset.name);
+        }
+
+        private void SetFollowStatus(string text)
+        {
+            if (followStatus == null)
+                return;
+
+            followStatus.text = text;
+            followStatus.tooltip = text;
+            followStatus.style.display = string.IsNullOrEmpty(text)
+                ? DisplayStyle.None
+                : DisplayStyle.Flex;
         }
     }
 }

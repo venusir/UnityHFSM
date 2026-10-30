@@ -34,8 +34,8 @@ namespace UnityHFSM.Graph
     }
 
     /// <summary>
-    /// Comparison operators for blackboard conditions. Numeric values are part of
-    /// the serialized JSON format, so keep them append-only.
+    /// Comparison operators for blackboard conditions. Numeric values are stored in
+    /// graph assets, so keep them append-only.
     /// </summary>
     public enum ConditionComparison
     {

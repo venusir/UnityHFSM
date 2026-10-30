@@ -18,15 +18,21 @@ namespace UnityHFSM.Graph.Editor
         {
             this.window = window;
             style.width = 320f;
-            style.borderLeftWidth = 1f;
-            style.borderLeftColor = new StyleColor(new Color(0.25f, 0.25f, 0.25f));
-            style.paddingLeft = 8f;
-            style.paddingRight = 8f;
-            style.paddingTop = 6f;
+            GraphEditorStyles.SetBorder(this, GraphEditorStyles.SeparatorColor, leftWidth: 1f);
+
+            Add(GraphEditorStyles.CreateHeaderBand("Inspector", out _));
+
+            var body = new VisualElement();
+            body.style.flexGrow = 1f;
+            body.style.minHeight = 0f;
+            body.style.paddingLeft = 8f;
+            body.style.paddingRight = 8f;
+            body.style.paddingTop = 6f;
+            Add(body);
 
             content = new ScrollView();
             content.style.flexGrow = 1f;
-            Add(content);
+            body.Add(content);
             Refresh();
         }
 
@@ -250,8 +256,7 @@ namespace UnityHFSM.Graph.Editor
             var row = new VisualElement();
             row.style.marginTop = 4f;
             row.style.paddingTop = 4f;
-            row.style.borderTopWidth = 1f;
-            row.style.borderTopColor = new StyleColor(new Color(0.22f, 0.22f, 0.22f));
+            GraphEditorStyles.SetBorder(row, GraphEditorStyles.SeparatorColor, topWidth: 1f);
 
             var parameterChoices = new List<string>();
             var parameters = new List<ParameterDef>();

@@ -6,8 +6,8 @@ namespace UnityHFSM.Graph
 {
     /// <summary>
     /// Serializable source-of-truth for a graph asset. The model is intentionally
-    /// flat (lists + string IDs + enums) so it can be serialized both by Unity and
-    /// by JsonUtility without custom converters.
+    /// flat (lists + string IDs + enums) so Unity can serialize it directly without
+    /// custom converters.
     /// </summary>
     [Serializable]
     public class GraphModel

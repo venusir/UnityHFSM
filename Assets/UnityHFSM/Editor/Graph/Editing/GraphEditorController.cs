@@ -335,14 +335,22 @@ namespace UnityHFSM.Graph.Editor
 
         public void AddParameter()
         {
+            AddParameter(BlackboardParameterType.Float);
+        }
+
+        public string AddParameter(BlackboardParameterType type)
+        {
             RecordComplete("Add Parameter");
-            Model.parameters.Add(new ParameterDef
+            var parameter = new ParameterDef
             {
                 id = GraphModelFactory.NewId(),
                 name = UniqueParameterName("Parameter"),
-                type = BlackboardParameterType.Float,
-            });
+                type = type,
+            };
+
+            Model.parameters.Add(parameter);
             NotifyChanged();
+            return parameter.id;
         }
 
         public void DeleteParameter(string parameterId)

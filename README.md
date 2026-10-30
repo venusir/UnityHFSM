@@ -131,11 +131,11 @@ You can also add it directly from GitHub on Unity 2021.2+. Note that you won't b
 
 The repository includes an optional Animator-style graph editor built on UnityHFSM. The existing code-first API remains fully supported and independent of this layer.
 
-- Create a graph asset via **Assets > Create > UnityHFSM > State Machine Graph**.
-- Open it with **Tools > UnityHFSM > State Machine Editor**.
-- Add states/sub-state machines, transitions, blackboard parameters (Float/Int/Bool/Trigger), conditions and `StateBehaviour` assets.
-- Add a `StateMachineRunner` component to a GameObject, assign the graph, and enter Play Mode to see active/pending highlights, blackboard values and the transition log. Pause/Step/Rebuild are available in the editor window.
-- Export/Import JSON from the toolbar for backup or transfer.
+- Create a graph asset via **Assets > Create > UnityHFSM > State Machine Graph** and open it with **Tools > UnityHFSM > State Machine Editor**.
+- Select a GameObject with a `StateMachineRunner` to follow its graph automatically, or select a graph asset in the Project window, double-click it, or use **Open State Machine Editor** in its inspector. The graph header shows the machine breadcrumb, a **Lock** toggle and a compact follow hint; **Lock** keeps the displayed graph while changing selection. If the selection has no runner or no graph, the last graph stays visible.
+- Right-click the graph canvas to create states and sub-state machines, or choose **Frame All** to fit the graph; drag transitions and add conditions.
+- Manage Animator-style parameters in the **Parameters** panel: use **+** to add Float/Int/Bool/Trigger, edit names and values inline, and right-click a row to delete it. Parameter types are fixed after creation.
+- Add a `StateMachineRunner` component to a GameObject, assign the graph, and enter Play Mode to see active/pending highlights, blackboard values and the transition log. Pause/Step/Rebuild are available in the **Runtime** panel.
 
 The graph layer lives in `UnityHFSM.Graph` and `UnityHFSM.Graph.Editor` and is additive; see [DEVELOPMENT.md](DEVELOPMENT.md). Animation clips, blend trees, avatar masks, layers and transition blend durations are out of scope in this version.
 

@@ -42,15 +42,21 @@ namespace UnityHFSM.Graph.Editor
         public RuntimePanel(StateMachineGraphWindow window)
         {
             this.window = window;
-            style.minHeight = 180f;
-            style.paddingLeft = 8f;
-            style.paddingRight = 8f;
-            style.paddingTop = 4f;
+
+            Add(GraphEditorStyles.CreateHeaderBand("Runtime", out _));
+
+            var body = new VisualElement();
+            body.style.flexGrow = 1f;
+            body.style.minHeight = 0f;
+            body.style.paddingLeft = 8f;
+            body.style.paddingRight = 8f;
+            body.style.paddingTop = 4f;
+            Add(body);
 
             var toolbar = new VisualElement();
             toolbar.style.flexDirection = FlexDirection.Row;
             toolbar.style.flexWrap = Wrap.Wrap;
-            Add(toolbar);
+            body.Add(toolbar);
 
             runnerField = new DropdownField("Runner");
             runnerField.style.minWidth = 220f;
@@ -78,22 +84,22 @@ namespace UnityHFSM.Graph.Editor
             toolbar.Add(rebuildButton);
 
             statusLabel = new Label("No runner bound.");
-            Add(statusLabel);
+            body.Add(statusLabel);
 
             pathLabel = new Label(string.Empty);
             pathLabel.style.whiteSpace = WhiteSpace.Normal;
-            Add(pathLabel);
+            body.Add(pathLabel);
 
             blackboardList = new ScrollView();
             blackboardList.style.maxHeight = 110f;
-            Add(blackboardList);
+            body.Add(blackboardList);
 
             var logScroll = new ScrollView();
             logScroll.style.flexGrow = 1f;
             logLabel = new Label(string.Empty);
             logLabel.style.whiteSpace = WhiteSpace.Normal;
             logScroll.Add(logLabel);
-            Add(logScroll);
+            body.Add(logScroll);
 
             RefreshRunnerList();
         }
@@ -151,6 +157,24 @@ namespace UnityHFSM.Graph.Editor
             runnerField.SetValueWithoutNotify(names[selected]);
             updatingRunnerField = false;
             SetBoundRunner(runners[selected]);
+        }
+
+        public void BindRunner(StateMachineRunner runner)
+        {
+            if (runner == null)
+                return;
+
+            if (!runners.Contains(runner))
+                RefreshRunnerList();
+
+            int index = runners.IndexOf(runner);
+            if (index < 0 || index >= runnerField.choices.Count)
+                return;
+
+            updatingRunnerField = true;
+            runnerField.SetValueWithoutNotify(runnerField.choices[index]);
+            updatingRunnerField = false;
+            SetBoundRunner(runner);
         }
 
         public void UpdateLive()

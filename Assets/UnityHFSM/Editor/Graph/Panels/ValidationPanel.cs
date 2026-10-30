@@ -1,4 +1,3 @@
-using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace UnityHFSM.Graph.Editor
@@ -12,18 +11,34 @@ namespace UnityHFSM.Graph.Editor
         public ValidationPanel(StateMachineGraphWindow window)
         {
             this.window = window;
-            style.minHeight = 120f;
-            style.paddingLeft = 8f;
-            style.paddingRight = 8f;
-            style.paddingTop = 4f;
+            GraphEditorStyles.SetBorder(this, GraphEditorStyles.SeparatorColor, rightWidth: 1f);
 
-            summary = new Label("Validation");
-            summary.style.unityFontStyleAndWeight = FontStyle.Bold;
-            Add(summary);
+            var header = GraphEditorStyles.CreateHeaderBand("Validation", out VisualElement headerRight);
+            Add(header);
+
+            summary = new Label();
+            summary.style.fontSize = 11f;
+            summary.style.color = new StyleColor(GraphEditorStyles.MutedTextColor);
+            summary.style.marginLeft = 4f;
+            summary.style.whiteSpace = WhiteSpace.NoWrap;
+            summary.style.textOverflow = TextOverflow.Ellipsis;
+            summary.style.overflow = Overflow.Hidden;
+            summary.style.flexShrink = 1f;
+            summary.style.minWidth = 0f;
+            summary.style.maxWidth = 220f;
+            headerRight.Add(summary);
+
+            var body = new VisualElement();
+            body.style.flexGrow = 1f;
+            body.style.minHeight = 0f;
+            body.style.paddingLeft = 8f;
+            body.style.paddingRight = 8f;
+            body.style.paddingTop = 4f;
+            Add(body);
 
             list = new ScrollView();
             list.style.flexGrow = 1f;
-            Add(list);
+            body.Add(list);
 
             Refresh();
         }
@@ -34,7 +49,8 @@ namespace UnityHFSM.Graph.Editor
 
             if (window.Controller == null || window.Controller.Model == null)
             {
-                summary.text = "Validation";
+                summary.text = string.Empty;
+                summary.tooltip = string.Empty;
                 list.Add(new Label("No graph asset selected."));
                 return;
             }
@@ -51,12 +67,19 @@ namespace UnityHFSM.Graph.Editor
                     warnings++;
             }
 
-            summary.text = "Validation: " + errors + " error(s), " + warnings + " warning(s)";
+            summary.text = errors + " error(s), " + warnings + " warning(s)";
+            summary.tooltip = summary.text;
+            summary.style.color = new StyleColor(
+                errors > 0
+                    ? GraphEditorStyles.ErrorColor
+                    : warnings > 0
+                        ? GraphEditorStyles.WarningColor
+                        : GraphEditorStyles.SuccessColor);
 
             if (result.Issues.Count == 0)
             {
                 var ok = new Label("No issues.");
-                ok.style.color = new StyleColor(new Color(0.45f, 0.85f, 0.45f));
+                ok.style.color = new StyleColor(GraphEditorStyles.SuccessColor);
                 list.Add(ok);
                 return;
             }
@@ -73,8 +96,8 @@ namespace UnityHFSM.Graph.Editor
                 label.style.whiteSpace = WhiteSpace.Normal;
                 label.style.color = new StyleColor(
                     issue.severity == GraphIssueSeverity.Error
-                        ? new Color(0.95f, 0.42f, 0.42f)
-                        : new Color(0.95f, 0.75f, 0.30f));
+                        ? GraphEditorStyles.ErrorColor
+                        : GraphEditorStyles.WarningColor);
 
                 list.Add(label);
             }

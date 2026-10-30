@@ -21,7 +21,7 @@ The plugin is compiled as these assemblies:
 - `UnityHFSM` — core runtime code in `Assets/UnityHFSM/Runtime/`
 - `UnityHFSM.Graph` — optional graph-asset runtime layer in `Assets/UnityHFSM/Runtime/Graph/`
 - `UnityHFSM.Editor` — existing editor tools (Animator graph, development info)
-- `UnityHFSM.Graph.Editor` — GraphView editor, blackboard, JSON import/export and runtime debug UI
+- `UnityHFSM.Graph.Editor` — GraphView editor, blackboard and runtime debug UI
 
 The code-first API remains the primary, fully supported workflow. The graph layer is additive and depends on `UnityHFSM`; the core assembly never depends on the graph layer.
 
@@ -83,14 +83,15 @@ Both samples use the legacy `Input` API, so keep **Project Settings > Player > A
 The graph editor is optional; code-first state machines continue to work exactly as before.
 
 1. Create a `StateMachineGraphAsset` and open it in **Tools > UnityHFSM > State Machine Editor**.
-2. Add states/sub-state machines, drag transitions, and add blackboard parameters (Float/Int/Bool/Trigger).
-3. Select a transition and add conditions; conditions reference blackboard parameters.
-4. Create `StateBehaviour` ScriptableObject subclasses for state logic and assign them on a state.
-5. Add a `StateMachineRunner` to a GameObject, assign the graph asset, and enter Play Mode.
-6. In the editor window, select the runner to see active/pending highlights, blackboard values and the transition log; use Pause/Step/Rebuild for debugging.
-7. Export/Import JSON from the toolbar for review, backup or transfer.
+2. Open a graph by selecting a `StateMachineGraphAsset` in the Project window, double-clicking it, or using **Open State Machine Editor** in its inspector. Select a GameObject with a `StateMachineRunner` to follow its graph; the graph header shows the breadcrumb, **Lock** and a compact follow hint. Selections without a runner or graph keep the last graph.
+3. Right-click the canvas to create states and sub-state machines or choose **Frame All**; drag transitions.
+4. Manage parameters in the **Parameters** panel: **+** adds Float/Int/Bool/Trigger, names and values are edited inline, right-click deletes a row, and types are fixed after creation.
+5. Select a transition and add conditions; conditions reference blackboard parameters.
+6. Create `StateBehaviour` ScriptableObject subclasses for state logic and assign them on a state.
+7. Add a `StateMachineRunner` to a GameObject, assign the graph asset, and enter Play Mode.
+8. In the **Runtime** panel, select the runner to see active/pending highlights, blackboard values and the transition log; use Pause/Step/Rebuild for debugging.
 
-Graph runtime limitations in this version: animation clips, blend trees, avatar masks, layers and transition blend durations are intentionally out of scope. Importing an existing code-built FSM into the graph asset is not supported; the graph layer has its own JSON format.
+Graph runtime limitations in this version: animation clips, blend trees, avatar masks, layers and transition blend durations are intentionally out of scope. Importing an existing code-built FSM into the graph asset is not supported; the graph layer uses its own ScriptableObject-based asset format.
 
 ## Packaging
 

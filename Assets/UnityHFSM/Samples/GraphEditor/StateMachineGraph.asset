@@ -1,0 +1,76 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6f553b3a98cf31644b03a99f77da6d02, type: 3}
+  m_Name: StateMachineGraph
+  m_EditorClassIdentifier: UnityHFSM.Graph::UnityHFSM.Graph.StateMachineGraphAsset
+  graph:
+    schemaVersion: 1
+    graphId: 889d5f679edc46e2b7a22e93ded578e1
+    rootMachineId: fefb877a5bc540269fc52bedcfbe4583
+    machines:
+    - id: fefb877a5bc540269fc52bedcfbe4583
+      name: Root
+      parentStateId: 
+      startStateId: 2a78a973cab0435d827b13cc24548124
+      kind: 0
+      rememberLastState: 0
+      entryPosition: {x: -318, y: -269}
+      anyStatePosition: {x: -313, y: 107}
+      exitPosition: {x: 830, y: -83}
+    - id: 0c913cd5122d4dae864f0893f5eee560
+      name: New Sub Machine
+      parentStateId: 03aa5faa1f1446c984355026f9451ad6
+      startStateId: faa919f3ed544b75b406be33948bf54c
+      kind: 1
+      rememberLastState: 0
+      entryPosition: {x: -360, y: -120}
+      anyStatePosition: {x: -360, y: 0}
+      exitPosition: {x: 360, y: 0}
+    states:
+    - id: 2a78a973cab0435d827b13cc24548124
+      machineId: fefb877a5bc540269fc52bedcfbe4583
+      name: New State
+      kind: 0
+      subMachineId: 
+      needsExitTime: 0
+      isGhostState: 0
+      behaviours: []
+      position: {x: 54, y: -134}
+    - id: 94d2f967efd443c4afeb0b14c4991a23
+      machineId: fefb877a5bc540269fc52bedcfbe4583
+      name: New State 1
+      kind: 0
+      subMachineId: 
+      needsExitTime: 0
+      isGhostState: 0
+      behaviours: []
+      position: {x: 101, y: -29}
+    - id: 03aa5faa1f1446c984355026f9451ad6
+      machineId: fefb877a5bc540269fc52bedcfbe4583
+      name: New Sub Machine
+      kind: 1
+      subMachineId: 0c913cd5122d4dae864f0893f5eee560
+      needsExitTime: 0
+      isGhostState: 0
+      behaviours: []
+      position: {x: 111, y: 99}
+    - id: faa919f3ed544b75b406be33948bf54c
+      machineId: 0c913cd5122d4dae864f0893f5eee560
+      name: State
+      kind: 0
+      subMachineId: 
+      needsExitTime: 0
+      isGhostState: 0
+      behaviours: []
+      position: {x: 0, y: 0}
+    transitions: []
+    parameters: []

@@ -54,7 +54,11 @@ namespace UnityHFSM.Graph
             if (runtime.Now - machine.StateEnteredAt < delaySeconds)
                 return false;
 
-            return evaluator.EvaluateAndConsume(runtime.Blackboard);
+            if (!evaluator.EvaluateAndConsume(runtime.Blackboard))
+                return false;
+
+            machine.PendingTransitionId = transitionId;
+            return true;
         }
 
         public override void BeforeTransition()

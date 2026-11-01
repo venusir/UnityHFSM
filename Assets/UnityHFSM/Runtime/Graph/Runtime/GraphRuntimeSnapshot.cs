@@ -13,6 +13,7 @@ namespace UnityHFSM.Graph
         public bool hasPendingTransition;
         public string pendingStateId;
         public string pendingStateName;
+        public string pendingTransitionId;
         public bool isExitPending;
         public double stateElapsed;
     }

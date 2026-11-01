@@ -49,7 +49,38 @@ namespace UnityHFSM.Graph
             conditions = compiled.ToArray();
         }
 
+        /// <summary>Number of compiled conditions.</summary>
+        public int Count => conditions.Length;
+
+        /// <summary>
+        /// Evaluates all conditions without consuming trigger parameters. Useful
+        /// for editor inspection and preview UIs.
+        /// </summary>
+        public bool Evaluate(Blackboard blackboard)
+        {
+            return EvaluateInternal(blackboard, false);
+        }
+
         public bool EvaluateAndConsume(Blackboard blackboard)
+        {
+            return EvaluateInternal(blackboard, true);
+        }
+
+        /// <summary>
+        /// Evaluates one condition by index without consuming triggers.
+        /// </summary>
+        public bool EvaluateCondition(int conditionIndex, Blackboard blackboard)
+        {
+            if (blackboard == null)
+                throw new ArgumentNullException(nameof(blackboard));
+
+            if (conditionIndex < 0 || conditionIndex >= conditions.Length)
+                return false;
+
+            return EvaluateCompiledCondition(conditions[conditionIndex], blackboard);
+        }
+
+        private bool EvaluateInternal(Blackboard blackboard, bool consumeTriggers)
         {
             if (blackboard == null)
                 throw new ArgumentNullException(nameof(blackboard));
@@ -63,42 +94,42 @@ namespace UnityHFSM.Graph
             {
                 CompiledCondition condition = conditions[i];
 
-                switch (condition.type)
-                {
-                    case BlackboardParameterType.Float:
-                        if (!CompareFloat(blackboard.GetFloatByIndex(condition.index), condition))
-                            return false;
-                        break;
+                if (!EvaluateCompiledCondition(condition, blackboard))
+                    return false;
 
-                    case BlackboardParameterType.Int:
-                        if (!CompareInt(blackboard.GetIntByIndex(condition.index), condition))
-                            return false;
-                        break;
-
-                    case BlackboardParameterType.Bool:
-                        if (!CompareBool(blackboard.GetBoolByIndex(condition.index), condition.comparison))
-                            return false;
-                        break;
-
-                    case BlackboardParameterType.Trigger:
-                        if (condition.comparison != ConditionComparison.IsSet
-                            || !blackboard.GetTriggerByIndex(condition.index))
-                        {
-                            return false;
-                        }
-
-                        passedTriggerIndices.Add(condition.index);
-                        break;
-
-                    default:
-                        return false;
-                }
+                if (consumeTriggers && condition.type == BlackboardParameterType.Trigger)
+                    passedTriggerIndices.Add(condition.index);
             }
 
-            for (int i = 0; i < passedTriggerIndices.Count; i++)
-                blackboard.ConsumeTriggerByIndex(passedTriggerIndices[i]);
+            if (consumeTriggers)
+            {
+                for (int i = 0; i < passedTriggerIndices.Count; i++)
+                    blackboard.ConsumeTriggerByIndex(passedTriggerIndices[i]);
+            }
 
             return true;
+        }
+
+        private static bool EvaluateCompiledCondition(CompiledCondition condition, Blackboard blackboard)
+        {
+            switch (condition.type)
+            {
+                case BlackboardParameterType.Float:
+                    return CompareFloat(blackboard.GetFloatByIndex(condition.index), condition);
+
+                case BlackboardParameterType.Int:
+                    return CompareInt(blackboard.GetIntByIndex(condition.index), condition);
+
+                case BlackboardParameterType.Bool:
+                    return CompareBool(blackboard.GetBoolByIndex(condition.index), condition.comparison);
+
+                case BlackboardParameterType.Trigger:
+                    return condition.comparison == ConditionComparison.IsSet
+                        && blackboard.GetTriggerByIndex(condition.index);
+
+                default:
+                    return false;
+            }
         }
 
         private static bool CompareFloat(float value, CompiledCondition condition)

@@ -25,6 +25,7 @@ namespace UnityHFSM.Graph
         public StateMachine<string, string, string> Fsm { get; internal set; }
 
         public string ActiveStateId { get; internal set; } = string.Empty;
+        public string PendingTransitionId { get; internal set; } = string.Empty;
         public double StateEnteredAt { get; internal set; }
 
         public List<StateRuntime> States { get; } = new List<StateRuntime>();
@@ -76,6 +77,7 @@ namespace UnityHFSM.Graph
         public void MarkStateEntered(string stateId)
         {
             ActiveStateId = stateId ?? string.Empty;
+            PendingTransitionId = string.Empty;
             StateEnteredAt = Runtime != null ? Runtime.Now : 0d;
         }
     }

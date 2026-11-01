@@ -14,16 +14,25 @@ namespace UnityHFSM.Graph.Editor
     /// </summary>
     public sealed class StateMachineGraphView : GraphView
     {
-        private static readonly Vector2 StateNodeSize = new Vector2(180f, 100f);
+        private static readonly Vector2 StateNodeSize = new Vector2(180f, 120f);
         private static readonly Vector2 PseudoNodeSize = new Vector2(130f, 60f);
+        private static readonly Color PendingEdgeColor = new Color(1f, 0.75f, 0.20f);
+        private static readonly Color FlashEdgeColor = new Color(0.30f, 0.90f, 0.45f);
 
         private readonly Dictionary<string, StateGraphNode> stateNodesById =
             new Dictionary<string, StateGraphNode>(StringComparer.Ordinal);
+        private readonly Dictionary<string, TransitionEdge> edgesByTransitionId =
+            new Dictionary<string, TransitionEdge>(StringComparer.Ordinal);
 
         private PseudoGraphNode entryNode;
         private PseudoGraphNode anyStateNode;
         private PseudoGraphNode exitNode;
+        private GridBackground grid;
+        private bool gridVisible = true;
         private bool suppressChanges;
+        private int lastFlashSequence = -1;
+        private string flashTransitionId;
+        private double flashUntil;
 
         public GraphEditorController Controller { get; set; }
         public string CurrentMachineId { get; private set; }
@@ -35,7 +44,7 @@ namespace UnityHFSM.Graph.Editor
             EdgeConnectorListener = new GraphEdgeConnectorListener(this);
             style.flexGrow = 1f;
 
-            var grid = new GridBackground();
+            grid = new GridBackground();
             Insert(0, grid);
             grid.StretchToParentSize();
 
@@ -52,6 +61,9 @@ namespace UnityHFSM.Graph.Editor
         {
             CurrentMachineId = machineId;
             ClearGraph();
+            lastFlashSequence = -1;
+            flashTransitionId = null;
+            flashUntil = 0d;
 
             if (Controller == null || Controller.Asset == null || Controller.Model == null)
                 return;
@@ -93,6 +105,7 @@ namespace UnityHFSM.Graph.Editor
                     this);
 
                 node.SetPosition(new Rect(state.position, StateNodeSize));
+                node.SetBadges(BuildStateBadges(state));
                 AddElement(node);
                 stateNodesById[state.id] = node;
             }
@@ -104,7 +117,8 @@ namespace UnityHFSM.Graph.Editor
                     startNode.InputPort,
                     string.Empty,
                     true,
-                    new Color(0.25f, 0.75f, 0.35f));
+                    new Color(0.25f, 0.75f, 0.35f),
+                    "The machine's start state.");
             }
 
             for (int i = 0; i < model.transitions.Count; i++)
@@ -145,7 +159,13 @@ namespace UnityHFSM.Graph.Editor
                         ? new Color(0.85f, 0.60f, 0.25f)
                         : new Color(0.55f, 0.55f, 0.55f);
 
-                AddTransitionEdge(outputPort, inputPort, transition.id, false, color);
+                AddTransitionEdge(
+                    outputPort,
+                    inputPort,
+                    transition.id,
+                    false,
+                    color,
+                    BuildTransitionTooltip(transition));
             }
 
             graphViewChanged = OnGraphViewChanged;
@@ -353,6 +373,7 @@ namespace UnityHFSM.Graph.Editor
 
             var active = new HashSet<string>(snapshot.activePathStateIds);
             string pendingStateId = null;
+            string pendingTransitionId = null;
             bool exitPending = false;
 
             for (int i = 0; i < snapshot.machines.Count; i++)
@@ -361,6 +382,7 @@ namespace UnityHFSM.Graph.Editor
                 if (machine.machineId == CurrentMachineId)
                 {
                     pendingStateId = machine.pendingStateId;
+                    pendingTransitionId = machine.pendingTransitionId;
                     exitPending = machine.isExitPending;
                     break;
                 }
@@ -377,6 +399,8 @@ namespace UnityHFSM.Graph.Editor
             if (entryNode != null) SetHighlight(entryNode, false, false);
             if (anyStateNode != null) SetHighlight(anyStateNode, false, false);
             if (exitNode != null) SetHighlight(exitNode, false, exitPending);
+
+            UpdateEdgeHighlights(snapshot, pendingStateId, pendingTransitionId);
         }
 
         public void ClearRuntimeHighlight()
@@ -387,6 +411,240 @@ namespace UnityHFSM.Graph.Editor
             if (entryNode != null) SetHighlight(entryNode, false, false);
             if (anyStateNode != null) SetHighlight(anyStateNode, false, false);
             if (exitNode != null) SetHighlight(exitNode, false, false);
+
+            foreach (TransitionEdge edge in edgesByTransitionId.Values)
+                edge.ClearHighlight();
+
+            flashTransitionId = null;
+            flashUntil = 0d;
+        }
+
+        private void UpdateEdgeHighlights(
+            GraphRuntimeSnapshot snapshot,
+            string pendingStateId,
+            string pendingTransitionId)
+        {
+            TransitionRecord latest = null;
+
+            for (int i = snapshot.transitions.Count - 1; i >= 0; i--)
+            {
+                TransitionRecord record = snapshot.transitions[i];
+                if (record != null && record.machineId == CurrentMachineId)
+                {
+                    latest = record;
+                    break;
+                }
+            }
+
+            double now = EditorApplication.timeSinceStartup;
+
+            if (latest != null && latest.sequence != lastFlashSequence)
+            {
+                lastFlashSequence = latest.sequence;
+                flashTransitionId = latest.transitionId;
+                flashUntil = now + 0.4d;
+            }
+
+            if (!string.IsNullOrEmpty(flashTransitionId) && now > flashUntil)
+                flashTransitionId = null;
+
+            foreach (KeyValuePair<string, TransitionEdge> pair in edgesByTransitionId)
+            {
+                string transitionId = pair.Key;
+                TransitionEdge edge = pair.Value;
+
+                if (!string.IsNullOrEmpty(flashTransitionId) && flashTransitionId == transitionId)
+                {
+                    edge.SetHighlight(FlashEdgeColor, 3f);
+                    continue;
+                }
+
+                if (!string.IsNullOrEmpty(pendingTransitionId) && pendingTransitionId == transitionId)
+                {
+                    edge.SetHighlight(PendingEdgeColor, 2.5f);
+                    continue;
+                }
+
+                // Older snapshots without a pending transition id fall back to
+                // highlighting every edge that enters the pending state.
+                if (string.IsNullOrEmpty(pendingTransitionId)
+                    && !string.IsNullOrEmpty(pendingStateId)
+                    && EdgeEntersState(edge, pendingStateId))
+                {
+                    edge.SetHighlight(PendingEdgeColor, 2.5f);
+                    continue;
+                }
+
+                edge.ClearHighlight();
+            }
+        }
+
+        private static bool EdgeEntersState(TransitionEdge edge, string stateId)
+        {
+            return edge.input != null
+                && edge.input.node is StateGraphNode target
+                && target.StateId == stateId;
+        }
+
+        public bool IsGridVisible => gridVisible;
+
+        public void SetGridVisible(bool visible)
+        {
+            gridVisible = visible;
+
+            if (grid != null)
+                grid.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+        }
+
+        public void RefreshDecorations()
+        {
+            if (Controller == null || Controller.Model == null)
+                return;
+
+            foreach (KeyValuePair<string, StateGraphNode> pair in stateNodesById)
+            {
+                StateDef state = Controller.FindState(pair.Key);
+                pair.Value.SetBadges(BuildStateBadges(state));
+            }
+
+            for (int i = 0; i < Controller.Model.transitions.Count; i++)
+            {
+                TransitionDef transition = Controller.Model.transitions[i];
+                if (transition == null || string.IsNullOrEmpty(transition.id))
+                    continue;
+
+                if (edgesByTransitionId.TryGetValue(transition.id, out TransitionEdge edge))
+                    edge.tooltip = BuildTransitionTooltip(transition);
+            }
+        }
+
+        public void SelectState(string stateId)
+        {
+            if (string.IsNullOrEmpty(stateId)
+                || !stateNodesById.TryGetValue(stateId, out StateGraphNode node))
+            {
+                return;
+            }
+
+            ClearSelection();
+            AddToSelection(node);
+            FrameSelection();
+        }
+
+        public void SelectTransition(string transitionId)
+        {
+            if (string.IsNullOrEmpty(transitionId)
+                || !edgesByTransitionId.TryGetValue(transitionId, out TransitionEdge edge))
+            {
+                return;
+            }
+
+            ClearSelection();
+            AddToSelection(edge);
+            FrameSelection();
+        }
+
+        public void FrameSelectionSafe()
+        {
+            if (selection == null || selection.Count == 0)
+                FrameAll();
+            else
+                FrameSelection();
+        }
+
+        public void ResetZoom()
+        {
+            UpdateViewTransform(Vector3.zero, Vector3.one);
+        }
+
+        private static string BuildStateBadges(StateDef state)
+        {
+            if (state == null)
+                return string.Empty;
+
+            var parts = new List<string>();
+
+            if (state.kind == StateKind.HybridSubMachine)
+                parts.Add("Sub-Machine");
+
+            if (state.needsExitTime)
+                parts.Add("Exit Time");
+
+            if (state.isGhostState)
+                parts.Add("Ghost");
+
+            int behaviourCount = 0;
+            if (state.behaviours != null)
+            {
+                for (int i = 0; i < state.behaviours.Count; i++)
+                {
+                    if (state.behaviours[i] != null)
+                        behaviourCount++;
+                }
+            }
+
+            if (behaviourCount > 0)
+                parts.Add(behaviourCount == 1 ? "1 behaviour" : behaviourCount + " behaviours");
+
+            return string.Join(" · ", parts);
+        }
+
+        private string BuildTransitionTooltip(TransitionDef transition)
+        {
+            if (transition == null)
+                return string.Empty;
+
+            string fromName = transition.source == TransitionSourceKind.Any
+                ? "Any State"
+                : StateName(transition.fromStateId);
+            string toName = transition.target == TransitionTargetKind.Exit
+                ? "Exit"
+                : StateName(transition.toStateId);
+
+            var builder = new System.Text.StringBuilder();
+            builder.Append(fromName).Append(" -> ").Append(toName);
+            builder.Append("\nDelay: ").Append(transition.delaySeconds.ToString("0.###")).Append(" s");
+            builder.Append("\nOrder: ").Append(transition.order);
+
+            if (transition.forceInstantly)
+                builder.Append("\nForce instantly");
+
+            if (transition.conditions != null && transition.conditions.Count > 0)
+            {
+                builder.Append("\nConditions:");
+                for (int i = 0; i < transition.conditions.Count; i++)
+                {
+                    ConditionDef condition = transition.conditions[i];
+                    if (condition == null)
+                        continue;
+
+                    ParameterDef parameter = Controller != null ? Controller.FindParameter(condition.parameterId) : null;
+                    string name = parameter != null ? parameter.name : "(missing parameter)";
+                    builder.Append("\n  ").Append(name).Append(' ')
+                        .Append(condition.comparison);
+
+                    if (parameter != null)
+                    {
+                        switch (parameter.type)
+                        {
+                            case BlackboardParameterType.Float:
+                                builder.Append(' ').Append(condition.floatValue.ToString("0.###"));
+                                break;
+                            case BlackboardParameterType.Int:
+                                builder.Append(' ').Append(condition.intValue);
+                                break;
+                        }
+                    }
+                }
+            }
+
+            return builder.ToString();
+        }
+
+        private string StateName(string stateId)
+        {
+            StateDef state = Controller != null ? Controller.FindState(stateId) : null;
+            return state != null ? state.name : "(missing)";
         }
 
         private void ClearGraph()
@@ -400,6 +658,7 @@ namespace UnityHFSM.Graph.Editor
                 RemoveElement(node);
 
             stateNodesById.Clear();
+            edgesByTransitionId.Clear();
             entryNode = null;
             anyStateNode = null;
             exitNode = null;
@@ -412,7 +671,8 @@ namespace UnityHFSM.Graph.Editor
             Port inputPort,
             string transitionId,
             bool isEntry,
-            Color color)
+            Color color,
+            string tooltip)
         {
             if (outputPort == null || inputPort == null)
                 return;
@@ -423,13 +683,17 @@ namespace UnityHFSM.Graph.Editor
                 input = inputPort,
                 TransitionId = transitionId,
                 IsEntryEdge = isEntry,
+                tooltip = tooltip,
             };
 
             if (isEntry)
                 edge.capabilities &= ~Capabilities.Deletable;
 
             AddElement(edge);
-            edge.SetColor(color);
+            edge.SetBaseColor(color);
+
+            if (!string.IsNullOrEmpty(transitionId))
+                edgesByTransitionId[transitionId] = edge;
         }
 
         private GraphViewChange OnGraphViewChanged(GraphViewChange change)

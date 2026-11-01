@@ -14,7 +14,14 @@ namespace UnityHFSM.Graph.Editor
         public StateMachineGraphAsset Asset { get; }
         public GraphModel Model => Asset != null ? Asset.Graph : null;
 
+        /// <summary>Raised after structural edits that require a graph rebuild.</summary>
         public event Action Changed;
+
+        /// <summary>
+        /// Raised after any asset modification, including in-place edits such as
+        /// positions, delays, conditions and toggles. Listeners should debounce.
+        /// </summary>
+        public event Action Dirty;
 
         public GraphEditorController(StateMachineGraphAsset asset)
         {
@@ -554,6 +561,8 @@ namespace UnityHFSM.Graph.Editor
         {
             if (Asset != null)
                 EditorUtility.SetDirty(Asset);
+
+            Dirty?.Invoke();
         }
 
         private void RecordComplete(string label)

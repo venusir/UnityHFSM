@@ -156,6 +156,36 @@ namespace UnityHFSM.Graph.Tests
             Assert.AreEqual(BlackboardParameterType.Float, asset.Graph.parameters[0].type);
         }
 
+        [Test]
+        public void DirtyFiresForInPlaceEditsWithoutStructuralChanged()
+        {
+            int dirty = 0;
+            int changed = 0;
+            controller.Dirty += () => dirty++;
+            controller.Changed += () => changed++;
+
+            string rootId = asset.Graph.rootMachineId;
+            string firstStateId = asset.Graph.states[0].id;
+            string secondStateId = controller.AddState(rootId, Vector2.zero);
+            string transitionId = controller.AddTransition(
+                rootId,
+                TransitionSourceKind.State,
+                firstStateId,
+                TransitionTargetKind.State,
+                secondStateId);
+
+            dirty = 0;
+            changed = 0;
+
+            controller.MoveState(firstStateId, new Vector2(10f, 20f));
+            Assert.AreEqual(1, dirty);
+            Assert.AreEqual(0, changed);
+
+            controller.SetTransitionDelay(transitionId, 0.5f);
+            Assert.AreEqual(2, dirty);
+            Assert.AreEqual(0, changed);
+        }
+
         private int CountStates(string machineId)
         {
             int count = 0;

@@ -13,6 +13,8 @@ namespace UnityHFSM.Graph.Editor
         public Port InputPort { get; }
         public Port OutputPort { get; }
 
+        private readonly Label badgeLabel;
+
         public StateGraphNode(
             string stateId,
             string machineId,
@@ -37,6 +39,18 @@ namespace UnityHFSM.Graph.Editor
                 isSubMachine
                     ? new Color(0.20f, 0.25f, 0.32f)
                     : new Color(0.18f, 0.18f, 0.18f));
+
+            badgeLabel = new Label();
+            badgeLabel.style.fontSize = 9f;
+            badgeLabel.style.color = new StyleColor(GraphEditorStyles.MutedTextColor);
+            badgeLabel.style.whiteSpace = WhiteSpace.NoWrap;
+            badgeLabel.style.overflow = Overflow.Hidden;
+            badgeLabel.style.textOverflow = TextOverflow.Ellipsis;
+            badgeLabel.style.marginLeft = 4f;
+            badgeLabel.style.marginRight = 4f;
+            badgeLabel.style.marginTop = 2f;
+            badgeLabel.style.marginBottom = 0f;
+            badgeLabel.style.display = DisplayStyle.None;
 
             InputPort = Port.Create<TransitionEdge>(
                 Orientation.Horizontal,
@@ -64,6 +78,47 @@ namespace UnityHFSM.Graph.Editor
                     evt.StopPropagation();
                 }
             });
+        }
+
+        public override Rect GetPosition()
+        {
+            // Node.GetPosition reads layout, which is NaN for a view that has not
+            // been attached to a panel yet (used by EditMode smoke tests). The
+            // style values are the authoritative position written by SetPosition.
+            return new Rect(
+                style.left.value.value,
+                style.top.value.value,
+                style.width.value.value,
+                style.height.value.value);
+        }
+
+        public void SetBadges(string text)
+        {
+            if (badgeLabel == null)
+                return;
+
+            string value = text ?? string.Empty;
+            badgeLabel.text = value;
+            badgeLabel.tooltip = value;
+
+            if (string.IsNullOrEmpty(value))
+            {
+                badgeLabel.style.display = DisplayStyle.None;
+                return;
+            }
+
+            if (badgeLabel.parent == null)
+            {
+                VisualElement badgeHost = topContainer ?? mainContainer;
+                if (badgeHost != null)
+                {
+                    badgeHost.style.flexDirection = FlexDirection.Row;
+                    badgeHost.style.alignItems = Align.Center;
+                    badgeHost.Add(badgeLabel);
+                }
+            }
+
+            badgeLabel.style.display = DisplayStyle.Flex;
         }
     }
 }

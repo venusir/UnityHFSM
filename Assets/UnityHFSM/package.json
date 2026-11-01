@@ -16,12 +16,8 @@
 
   "samples": [
     {
-      "displayName": "Guard AI",
-      "path": "Samples~/GuardAI"
-    },
-    {
-      "displayName": "Sample3d",
-      "path": "Samples~/Sample3d"
+      "displayName": "Graph Editor",
+      "path": "Samples~/GraphEditor"
     }
   ]
 }

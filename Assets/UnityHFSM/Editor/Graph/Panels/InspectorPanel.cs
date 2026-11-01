@@ -14,6 +14,16 @@ namespace UnityHFSM.Graph.Editor
         private string selectedStateId;
         private string selectedTransitionId;
 
+        private VisualElement liveSection;
+        private Label liveStatusLabel;
+        private Label liveDetailLabel;
+        private Label liveElapsedLabel;
+        private readonly List<Label> conditionChecks = new List<Label>();
+        private ConditionEvaluator conditionEvaluator;
+        private string selectedLiveStateId;
+        private string selectedLiveMachineId;
+        private string selectedLiveTransitionId;
+
         public InspectorPanel(StateMachineGraphWindow window)
         {
             this.window = window;
@@ -60,6 +70,16 @@ namespace UnityHFSM.Graph.Editor
         public void Refresh()
         {
             content.Clear();
+
+            liveSection = null;
+            liveStatusLabel = null;
+            liveDetailLabel = null;
+            liveElapsedLabel = null;
+            conditionChecks.Clear();
+            conditionEvaluator = null;
+            selectedLiveStateId = null;
+            selectedLiveMachineId = null;
+            selectedLiveTransitionId = null;
 
             if (window.Controller == null || window.Controller.Model == null)
             {
@@ -192,6 +212,8 @@ namespace UnityHFSM.Graph.Editor
             };
             addRow.Add(addButton);
             content.Add(addRow);
+
+            AddStateLiveSection(state);
         }
 
         private void BuildTransition(TransitionDef transition)
@@ -246,6 +268,8 @@ namespace UnityHFSM.Graph.Editor
             };
             addCondition.style.marginTop = 6f;
             content.Add(addCondition);
+
+            AddTransitionLiveSection(transition);
         }
 
         private VisualElement BuildConditionRow(TransitionDef transition, int index)
@@ -257,6 +281,17 @@ namespace UnityHFSM.Graph.Editor
             row.style.marginTop = 4f;
             row.style.paddingTop = 4f;
             GraphEditorStyles.SetBorder(row, GraphEditorStyles.SeparatorColor, topWidth: 1f);
+
+            if (window.CurrentRuntime != null)
+            {
+                var check = new Label("—");
+                check.style.fontSize = 10f;
+                check.style.unityFontStyleAndWeight = FontStyle.Bold;
+                check.style.marginTop = 2f;
+                check.tooltip = "Live condition result";
+                row.Add(check);
+                conditionChecks.Add(check);
+            }
 
             var parameterChoices = new List<string>();
             var parameters = new List<ParameterDef>();
@@ -360,6 +395,8 @@ namespace UnityHFSM.Graph.Editor
                 content.Add(BuildRememberLastStateToggle(machine));
 
             content.Add(new Label("States: " + CountStates(machine.id)));
+
+            AddMachineLiveSection(machine);
         }
 
         private void BuildStartStateDropdown(MachineDef machine)
@@ -430,6 +467,284 @@ namespace UnityHFSM.Graph.Editor
             }
 
             return count;
+        }
+
+        public void UpdateLive(GraphRuntimeSnapshot snapshot)
+        {
+            if (liveSection == null || snapshot == null)
+                return;
+
+            if (!string.IsNullOrEmpty(selectedLiveTransitionId))
+                UpdateTransitionLive(snapshot);
+            else if (!string.IsNullOrEmpty(selectedLiveStateId))
+                UpdateStateLive(snapshot);
+            else if (!string.IsNullOrEmpty(selectedLiveMachineId))
+                UpdateMachineLive(snapshot);
+        }
+
+        private void AddStateLiveSection(StateDef state)
+        {
+            if (window.CurrentRuntime == null)
+                return;
+
+            AddLiveSection("Runtime");
+            selectedLiveStateId = state.id;
+            selectedLiveMachineId = state.machineId;
+            UpdateLive(window.CurrentSnapshot);
+        }
+
+        private void AddTransitionLiveSection(TransitionDef transition)
+        {
+            if (window.CurrentRuntime == null)
+                return;
+
+            try
+            {
+                conditionEvaluator = new ConditionEvaluator(
+                    window.CurrentRuntime.Schema,
+                    transition.conditions);
+            }
+            catch (Exception)
+            {
+                conditionEvaluator = null;
+            }
+
+            AddLiveSection("Runtime");
+            selectedLiveTransitionId = transition.id;
+            UpdateLive(window.CurrentSnapshot);
+        }
+
+        private void AddMachineLiveSection(MachineDef machine)
+        {
+            if (window.CurrentRuntime == null)
+                return;
+
+            AddLiveSection("Runtime");
+            selectedLiveMachineId = machine.id;
+            UpdateLive(window.CurrentSnapshot);
+        }
+
+        private void AddLiveSection(string title)
+        {
+            liveSection = new VisualElement();
+            liveSection.style.marginTop = 10f;
+            liveSection.style.paddingTop = 6f;
+            GraphEditorStyles.SetBorder(
+                liveSection,
+                GraphEditorStyles.SeparatorColor,
+                topWidth: 1f);
+
+            var header = new Label(title);
+            header.style.unityFontStyleAndWeight = FontStyle.Bold;
+            header.style.marginBottom = 4f;
+            liveSection.Add(header);
+
+            liveStatusLabel = new Label();
+            liveStatusLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+            liveSection.Add(liveStatusLabel);
+
+            liveElapsedLabel = new Label();
+            liveElapsedLabel.style.fontSize = 11f;
+            liveElapsedLabel.style.color = new StyleColor(GraphEditorStyles.MutedTextColor);
+            liveSection.Add(liveElapsedLabel);
+
+            liveDetailLabel = new Label();
+            liveDetailLabel.style.fontSize = 11f;
+            liveDetailLabel.style.whiteSpace = WhiteSpace.Normal;
+            liveDetailLabel.style.color = new StyleColor(GraphEditorStyles.MutedTextColor);
+            liveSection.Add(liveDetailLabel);
+
+            content.Add(liveSection);
+        }
+
+        private void UpdateStateLive(GraphRuntimeSnapshot snapshot)
+        {
+            MachineRuntimeSnapshot machine = FindMachine(snapshot, selectedLiveMachineId);
+            bool active = machine != null && machine.activeStateId == selectedLiveStateId;
+            bool pending = machine != null && machine.pendingStateId == selectedLiveStateId;
+
+            if (active)
+            {
+                SetLiveStatus("Active", GraphEditorStyles.SuccessColor);
+                liveElapsedLabel.text = "Elapsed: " + machine.stateElapsed.ToString("0.###") + " s";
+            }
+            else if (pending)
+            {
+                SetLiveStatus("Pending", GraphEditorStyles.WarningColor);
+                liveElapsedLabel.text = string.Empty;
+            }
+            else
+            {
+                SetLiveStatus("Inactive", GraphEditorStyles.MutedTextColor);
+                liveElapsedLabel.text = string.Empty;
+            }
+
+            StateDef state = window.Controller != null ? window.Controller.FindState(selectedLiveStateId) : null;
+            if (state != null && state.kind == StateKind.HybridSubMachine && active)
+            {
+                MachineRuntimeSnapshot child = FindMachine(snapshot, state.subMachineId);
+                liveDetailLabel.text = child != null && !string.IsNullOrEmpty(child.activeStateName)
+                    ? "Child active: " + child.activeStateName
+                    : "Child machine is not active.";
+            }
+            else if (pending)
+            {
+                liveDetailLabel.text = machine.isExitPending
+                    ? "Transition pending: Exit"
+                    : "Transition pending: " + machine.pendingStateName;
+            }
+            else
+            {
+                liveDetailLabel.text = string.Empty;
+            }
+        }
+
+        private void UpdateTransitionLive(GraphRuntimeSnapshot snapshot)
+        {
+            GraphRuntime runtime = window.CurrentRuntime;
+            if (runtime == null)
+            {
+                SetLiveStatus("No runtime", GraphEditorStyles.MutedTextColor);
+                return;
+            }
+
+            TransitionDef transition = window.Controller != null
+                ? window.Controller.FindTransition(selectedLiveTransitionId)
+                : null;
+
+            if (conditionEvaluator == null || transition == null)
+            {
+                SetLiveStatus("Conditions unavailable", GraphEditorStyles.WarningColor);
+                liveElapsedLabel.text = string.Empty;
+                liveDetailLabel.text = "Restart the preview to evaluate this transition.";
+                return;
+            }
+
+            bool satisfied;
+            try
+            {
+                satisfied = conditionEvaluator.Evaluate(runtime.Blackboard);
+            }
+            catch (Exception)
+            {
+                SetLiveStatus("Conditions unavailable", GraphEditorStyles.WarningColor);
+                liveElapsedLabel.text = string.Empty;
+                liveDetailLabel.text = "The runtime schema no longer matches this transition.";
+                return;
+            }
+
+            SetLiveStatus(
+                satisfied ? "Conditions satisfied" : "Conditions not satisfied",
+                satisfied ? GraphEditorStyles.SuccessColor : GraphEditorStyles.MutedTextColor);
+
+            for (int i = 0; i < conditionChecks.Count; i++)
+            {
+                Label check = conditionChecks[i];
+                if (check == null)
+                    continue;
+
+                if (i >= conditionEvaluator.Count)
+                {
+                    check.text = "—";
+                    check.style.color = new StyleColor(GraphEditorStyles.MutedTextColor);
+                    continue;
+                }
+
+                bool passed;
+                try
+                {
+                    passed = conditionEvaluator.EvaluateCondition(i, runtime.Blackboard);
+                }
+                catch (Exception)
+                {
+                    check.text = "—";
+                    check.style.color = new StyleColor(GraphEditorStyles.MutedTextColor);
+                    continue;
+                }
+
+                check.text = passed ? "OK" : "X";
+                check.style.color = new StyleColor(
+                    passed ? GraphEditorStyles.SuccessColor : GraphEditorStyles.ErrorColor);
+            }
+
+            TransitionRecord last = FindLastTransition(runtime.TransitionLog, selectedLiveTransitionId);
+            liveElapsedLabel.text = last != null
+                ? "Last fired: #" + last.sequence + " at t=" + last.time.ToString("0.###") + " s"
+                : "Last fired: never";
+            liveDetailLabel.text = string.Empty;
+        }
+
+        private void UpdateMachineLive(GraphRuntimeSnapshot snapshot)
+        {
+            MachineRuntimeSnapshot machine = FindMachine(snapshot, selectedLiveMachineId);
+            if (machine == null)
+            {
+                SetLiveStatus("Inactive", GraphEditorStyles.MutedTextColor);
+                liveElapsedLabel.text = string.Empty;
+                liveDetailLabel.text = string.Empty;
+                return;
+            }
+
+            bool hasActiveState = !string.IsNullOrEmpty(machine.activeStateName);
+
+            SetLiveStatus(
+                hasActiveState ? "Active: " + machine.activeStateName : "Inactive",
+                hasActiveState
+                    ? GraphEditorStyles.SuccessColor
+                    : GraphEditorStyles.MutedTextColor);
+
+            liveElapsedLabel.text = hasActiveState
+                ? "Elapsed: " + machine.stateElapsed.ToString("0.###") + " s"
+                : string.Empty;
+
+            if (machine.hasPendingTransition)
+            {
+                liveDetailLabel.text = machine.isExitPending
+                    ? "Pending: Exit"
+                    : "Pending: " + machine.pendingStateName;
+            }
+            else
+            {
+                liveDetailLabel.text = string.Empty;
+            }
+        }
+
+        private void SetLiveStatus(string text, Color color)
+        {
+            liveStatusLabel.text = text;
+            liveStatusLabel.style.color = new StyleColor(color);
+        }
+
+        private static MachineRuntimeSnapshot FindMachine(GraphRuntimeSnapshot snapshot, string machineId)
+        {
+            if (snapshot == null || string.IsNullOrEmpty(machineId))
+                return null;
+
+            for (int i = 0; i < snapshot.machines.Count; i++)
+            {
+                MachineRuntimeSnapshot machine = snapshot.machines[i];
+                if (machine != null && machine.machineId == machineId)
+                    return machine;
+            }
+
+            return null;
+        }
+
+        private static TransitionRecord FindLastTransition(
+            IReadOnlyList<TransitionRecord> transitions,
+            string transitionId)
+        {
+            if (transitions == null || string.IsNullOrEmpty(transitionId))
+                return null;
+
+            for (int i = transitions.Count - 1; i >= 0; i--)
+            {
+                TransitionRecord record = transitions[i];
+                if (record != null && record.transitionId == transitionId)
+                    return record;
+            }
+
+            return null;
         }
 
         private void AddHeader(string text)

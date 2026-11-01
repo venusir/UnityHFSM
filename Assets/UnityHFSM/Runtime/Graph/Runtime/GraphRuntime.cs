@@ -64,6 +64,10 @@ namespace UnityHFSM.Graph
                 ReleaseBehaviourClones();
                 throw;
             }
+
+#if UNITY_EDITOR
+            GraphRuntimeRegistry.Register(this);
+#endif
         }
 
         public void Start()
@@ -223,6 +227,7 @@ namespace UnityHFSM.Graph
                 if (machine.IsInitialized && machine.Fsm.HasPendingTransition)
                 {
                     machineSnapshot.hasPendingTransition = true;
+                    machineSnapshot.pendingTransitionId = machine.PendingTransitionId;
                     string pendingName = machine.Fsm.PendingStateName;
 
                     if (string.IsNullOrEmpty(pendingName))
@@ -323,6 +328,9 @@ namespace UnityHFSM.Graph
                 ReleaseBehaviourClones();
                 IsStarted = false;
                 IsDisposed = true;
+#if UNITY_EDITOR
+                GraphRuntimeRegistry.Unregister(this);
+#endif
             }
         }
 

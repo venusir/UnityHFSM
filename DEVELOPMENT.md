@@ -21,7 +21,7 @@ The plugin is compiled as these assemblies:
 - `UnityHFSM` — core runtime code in `Assets/UnityHFSM/Runtime/`
 - `UnityHFSM.Graph` — optional graph-asset runtime layer in `Assets/UnityHFSM/Runtime/Graph/`
 - `UnityHFSM.Editor` — existing editor tools (Animator graph, development info)
-- `UnityHFSM.Graph.Editor` — GraphView editor, blackboard and runtime debug UI
+- `UnityHFSM.Graph.Editor` — Session/Commands/Views graph editor, runtime preview and debugging UI
 
 The code-first API remains the primary, fully supported workflow. The graph layer is additive and depends on `UnityHFSM`; the core assembly never depends on the graph layer.
 
@@ -34,6 +34,10 @@ Assets/
       Graph/          # optional graph asset/runtime layer + UnityHFSM.Graph.asmdef
     Editor/           # editor tools + UnityHFSM.Editor.asmdef
       Graph/          # GraphView editor + UnityHFSM.Graph.Editor.asmdef
+        Session/      # GraphEditorSession, mode, selection, navigation, layout state
+        Commands/     # document/navigation/authoring/runtime/layout/diagnostics commands
+        Views/        # document bar, mode bar, parameters, inspector, console, layout
+        GraphView/    # canvas, nodes, edges
     Tests/Editor/     # EditMode tests + UnityHFSM.Tests.asmdef
       Graph/          # graph runtime/editor tests + UnityHFSM.Graph.Tests.asmdef
     Samples/          # Graph Editor sample (visible in the dev project)
@@ -80,15 +84,15 @@ used to live outside the package were replaced by the EditMode test suite.
 The graph editor is optional; code-first state machines continue to work exactly as before.
 
 1. Create a `StateMachineGraphAsset` and open it in **Tools > UnityHFSM > State Machine Editor**.
-2. Open a graph by selecting a `StateMachineGraphAsset` in the Project window, double-clicking it, or using **Open State Machine Editor** in its inspector. Selecting a GameObject with an optional `StateMachineRunner` also follows its graph. The toolbar shows the breadcrumb, **Lock**, preview controls, search and validation badge.
-3. Drag the splitter next to **Parameters** / **Inspector** or the bottom drawer splitter to resize panes. Use the **⋯** menu for panel visibility, grid, framing and zoom. Layout state is serialized on the window.
-4. Right-click the canvas to create states and sub-state machines or choose **Frame All**; drag transitions. Use **Find** (`Ctrl+F`) to search states, machines and transitions.
-5. Manage parameters in the **Parameters** panel: **+** adds Float/Int/Bool/Trigger, names and values are edited inline, right-click deletes a row, and types are fixed after creation.
-6. Select a transition and add conditions; conditions reference blackboard parameters.
-7. Create `StateBehaviour` ScriptableObject subclasses for state logic and assign them on a state.
-8. Press **Play** in the toolbar to preview in Edit Mode. No MonoBehaviour or Play Mode is required. Pause/Step/Restart and speed control the preview; graph highlights, live parameter values, the live Inspector and the Runtime Log drawer show what happened.
-9. To debug code-created runtimes, construct `GraphRuntime` normally and enter Play Mode. The editor-only `GraphRuntimeRegistry` discovers live runtimes automatically; select one from the toolbar target dropdown. `StateMachineRunner` is still supported for scene-hosted, auto-ticked graphs.
-10. The bottom drawer (**Validation** / **Runtime Log**) is collapsed by default. Click validation issues or transition-log entries to navigate to the corresponding node or edge.
+2. The window has two header rows. **Document** contains the asset, follow/lock, Back/Forward, breadcrumb and **Find**. **Mode** contains commands for the current mode. Selecting a graph asset, double-clicking it, or selecting a GameObject with an optional `StateMachineRunner` follows its graph.
+3. Modes are explicit: **Edit**, **Preview**, and **Live** in Play Mode. Preview/Live are read-only for graph structure; selection, navigation, zoom and live parameter values remain available.
+4. Drag the splitter next to **Parameters** / **Inspector** or the Console splitter to resize panes. The **View** menu toggles panels, grid, framing and zoom; layout state is serialized on the window.
+5. In Edit mode use **+ Add** or right-click for states/sub-state machines, drag ports or use **Link** for transitions, and **Delete** for the selection. **Find** (`Ctrl+F`) searches states, machines and transitions. Breadcrumb history supports Back/Forward.
+6. Manage parameters in **Parameters**: in Edit mode **+** adds Float/Int/Bool/Trigger and edits defaults; in Preview/Live the panel switches to live values and Trigger Set/Reset.
+7. Select a transition and add conditions; conditions reference blackboard parameters. Create `StateBehaviour` ScriptableObject subclasses and assign them on a state.
+8. Press **Preview** in the Mode bar. No MonoBehaviour or Play Mode is required. Pause/Step/Reset/Stop and speed control the simulation; graph highlights, the **Runtime** Inspector tab and the Console show what happened. Stop Preview to edit again.
+9. To debug code-created runtimes, construct `GraphRuntime` normally and enter Play Mode. The editor-only `GraphRuntimeRegistry` discovers matching runtimes; choose a target in the Mode bar. `StateMachineRunner` remains supported for scene-hosted graphs.
+10. The **Console** is collapsed by default. **Validation** and **Runtime Log** live there; click an issue or log entry to navigate. Keyboard shortcuts are listed in the README and in tooltips.
 
 Graph runtime limitations in this version: animation clips, blend trees, avatar masks, layers and transition blend durations are intentionally out of scope. Importing an existing code-built FSM into the graph asset is not supported; the graph layer uses its own ScriptableObject-based asset format.
 

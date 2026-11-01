@@ -12,7 +12,7 @@ namespace UnityHFSM.Graph.Editor
     /// GraphView for one machine at a time. The model is the only source of truth;
     /// view elements only carry stable IDs.
     /// </summary>
-    public sealed class StateMachineGraphView : GraphView
+    public sealed class StateMachineGraphView : GraphView, IGraphEditorCanvasHost
     {
         private static readonly Vector2 StateNodeSize = new Vector2(180f, 120f);
         private static readonly Vector2 PseudoNodeSize = new Vector2(130f, 60f);
@@ -30,6 +30,12 @@ namespace UnityHFSM.Graph.Editor
         private GridBackground grid;
         private bool gridVisible = true;
         private bool suppressChanges;
+        private bool readOnly;
+        private GraphEditorSession session;
+        private GraphEditorCommands commands;
+        private bool suppressSelectionSync;
+        private Label emptyHint;
+        private StateGraphNode linkSourceNode;
         private int lastFlashSequence = -1;
         private string flashTransitionId;
         private double flashUntil;
@@ -48,6 +54,16 @@ namespace UnityHFSM.Graph.Editor
             Insert(0, grid);
             grid.StretchToParentSize();
 
+            emptyHint = new Label();
+            emptyHint.style.position = Position.Absolute;
+            emptyHint.style.left = 12f;
+            emptyHint.style.top = 12f;
+            emptyHint.style.fontSize = GraphEditorMetrics.FontSize;
+            emptyHint.style.color = new StyleColor(GraphEditorStyles.MutedTextColor);
+            emptyHint.style.display = DisplayStyle.None;
+            emptyHint.pickingMode = PickingMode.Ignore;
+            hierarchy.Add(emptyHint);
+
             this.AddManipulator(new ContentDragger());
             this.AddManipulator(new SelectionDragger());
             this.AddManipulator(new RectangleSelector());
@@ -55,6 +71,275 @@ namespace UnityHFSM.Graph.Editor
             SetupZoom(ContentZoomer.DefaultMinScale, ContentZoomer.DefaultMaxScale);
 
             graphViewChanged = OnGraphViewChanged;
+        }
+
+        public void Bind(GraphEditorSession session, GraphEditorCommands commands)
+        {
+            Unbind();
+            this.session = session;
+            this.commands = commands;
+
+            if (session == null)
+            {
+                Controller = null;
+                return;
+            }
+
+            Controller = session.Controller;
+            session.Changed += OnSessionChanged;
+            OnSessionChanged(GraphEditorChange.All);
+        }
+
+        public void Unbind()
+        {
+            if (session != null)
+                session.Changed -= OnSessionChanged;
+
+            session = null;
+            commands = null;
+            Controller = null;
+            ClearGraph();
+        }
+
+        private void OnSessionChanged(GraphEditorChange change)
+        {
+            if (session == null)
+                return;
+
+            bool documentChanged = (change & GraphEditorChange.Document) != 0;
+
+            if ((change & (GraphEditorChange.Document
+                | GraphEditorChange.StructureRebuild
+                | GraphEditorChange.Machine
+                | GraphEditorChange.All)) != 0)
+            {
+                Controller = session.Controller;
+                LoadMachine(session.CurrentMachineId);
+                ApplySelection(session.Selection);
+                SetReadOnly(GraphEditorModePolicy.IsReadOnlyGraph(session.Mode));
+                SetGridVisible(session.GridVisible);
+                UpdateLinkHighlight();
+
+                if (documentChanged)
+                    FrameAll();
+            }
+
+            if ((change & GraphEditorChange.Mode) != 0)
+                SetReadOnly(GraphEditorModePolicy.IsReadOnlyGraph(session.Mode));
+
+            if ((change & GraphEditorChange.Selection) != 0)
+                ApplySelection(session.Selection);
+
+            if ((change & GraphEditorChange.Runtime) != 0)
+                ApplySnapshot(session.Snapshot);
+
+            if ((change & GraphEditorChange.Layout) != 0)
+                SetGridVisible(session.GridVisible);
+
+            if ((change & GraphEditorChange.ModelDirty) != 0)
+                RefreshDecorations();
+
+            if ((change & GraphEditorChange.Interaction) != 0)
+                UpdateLinkHighlight();
+        }
+
+        private void UpdateLinkHighlight()
+        {
+            if (linkSourceNode != null)
+            {
+                SetHighlight(linkSourceNode, false, false);
+                linkSourceNode = null;
+            }
+
+            if (session == null || string.IsNullOrEmpty(session.PendingLinkSourceId))
+                return;
+
+            if (stateNodesById.TryGetValue(session.PendingLinkSourceId, out StateGraphNode node))
+            {
+                linkSourceNode = node;
+                SetHighlight(node, false, true);
+            }
+        }
+
+        /// <summary>Call from the window after session.Tick to project GraphView selection into the session.</summary>
+        public void PollSelection()
+        {
+            if (session == null || commands == null || suppressSelectionSync)
+                return;
+
+            if (session.IsLinking)
+            {
+                if (selection != null && selection.Count == 1 && selection[0] is StateGraphNode linkTarget)
+                {
+                    if (string.IsNullOrEmpty(session.PendingLinkSourceId))
+                    {
+                        commands.Authoring.SetLinkSource(linkTarget.StateId);
+                        ClearSelection();
+                    }
+                    else
+                    {
+                        commands.Authoring.CompleteLink(linkTarget.StateId);
+                    }
+                }
+
+                return;
+            }
+
+            GraphEditorSelection next = BuildSelectionFromCanvas();
+            if (!next.Equals(session.Selection))
+                commands.Navigation.Select(next, true);
+        }
+
+        private GraphEditorSelection BuildSelectionFromCanvas()
+        {
+            var items = new List<GraphEditorSelectionItem>();
+
+            if (selection != null)
+            {
+                for (int i = 0; i < selection.Count; i++)
+                {
+                    ISelectable element = selection[i];
+                    if (element is StateGraphNode state)
+                        items.Add(new GraphEditorSelectionItem(GraphEditorSelectionItemKind.State, state.StateId));
+                    else if (element is TransitionEdge edge && !edge.IsEntryEdge
+                        && !string.IsNullOrEmpty(edge.TransitionId))
+                        items.Add(new GraphEditorSelectionItem(
+                            GraphEditorSelectionItemKind.Transition,
+                            edge.TransitionId));
+                    else if (element is PseudoGraphNode pseudo
+                        && (pseudo.Kind == PseudoNodeKind.Entry || pseudo.Kind == PseudoNodeKind.AnyState))
+                        items.Add(new GraphEditorSelectionItem(
+                            GraphEditorSelectionItemKind.Pseudo,
+                            pseudo.Kind.ToString(),
+                            pseudo.Kind));
+                }
+            }
+
+            if (items.Count == 0)
+                return GraphEditorSelection.Machine(session.CurrentMachineId);
+
+            return GraphEditorSelection.Multi(items);
+        }
+
+        private void ApplySelection(GraphEditorSelection desired)
+        {
+            suppressSelectionSync = true;
+            try
+            {
+                ClearSelection();
+                if (desired == null || desired.Kind == GraphEditorSelectionKind.Machine
+                    || desired.Kind == GraphEditorSelectionKind.None)
+                {
+                    return;
+                }
+
+                for (int i = 0; i < desired.Items.Count; i++)
+                {
+                    GraphEditorSelectionItem item = desired.Items[i];
+                    switch (item.Kind)
+                    {
+                        case GraphEditorSelectionItemKind.State:
+                            if (stateNodesById.TryGetValue(item.Id, out StateGraphNode state))
+                                AddToSelection(state);
+                            break;
+                        case GraphEditorSelectionItemKind.Transition:
+                            if (edgesByTransitionId.TryGetValue(item.Id, out TransitionEdge edge))
+                                AddToSelection(edge);
+                            break;
+                        case GraphEditorSelectionItemKind.Pseudo:
+                            if (item.PseudoKind == PseudoNodeKind.Entry && entryNode != null)
+                                AddToSelection(entryNode);
+                            else if (item.PseudoKind == PseudoNodeKind.AnyState && anyStateNode != null)
+                                AddToSelection(anyStateNode);
+                            else if (item.PseudoKind == PseudoNodeKind.Exit && exitNode != null)
+                                AddToSelection(exitNode);
+                            break;
+                    }
+                }
+            }
+            finally
+            {
+                suppressSelectionSync = false;
+            }
+        }
+
+        public bool IsReadOnly => readOnly;
+
+        public void SetReadOnly(bool value)
+        {
+            if (readOnly == value)
+                return;
+
+            readOnly = value;
+            ApplyReadOnlyState();
+            UpdateEmptyHint();
+        }
+
+        public override EventPropagation DeleteSelection()
+        {
+            if (readOnly)
+                return EventPropagation.Stop;
+
+            if (commands != null && session != null)
+            {
+                GraphEditorSelection next = BuildSelectionFromCanvas();
+                if (!next.Equals(session.Selection))
+                    commands.Navigation.Select(next, true);
+
+                commands.Authoring.DeleteSelection();
+                return EventPropagation.Stop;
+            }
+
+            return base.DeleteSelection();
+        }
+
+        private void ApplyReadOnlyState()
+        {
+            foreach (StateGraphNode node in stateNodesById.Values)
+            {
+                node.capabilities = readOnly
+                    ? Capabilities.Selectable
+                    : Capabilities.Selectable | Capabilities.Movable | Capabilities.Deletable;
+
+                SetPortReadOnly(node.InputPort);
+                SetPortReadOnly(node.OutputPort);
+            }
+
+            ApplyPseudoReadOnly(entryNode);
+            ApplyPseudoReadOnly(anyStateNode);
+            ApplyPseudoReadOnly(exitNode);
+
+            foreach (Edge edge in edges.ToList())
+            {
+                if (!(edge is TransitionEdge transitionEdge))
+                    continue;
+
+                transitionEdge.capabilities = readOnly || transitionEdge.IsEntryEdge
+                    ? Capabilities.Selectable
+                    : Capabilities.Selectable | Capabilities.Deletable;
+            }
+        }
+
+        private void ApplyPseudoReadOnly(PseudoGraphNode node)
+        {
+            if (node == null)
+                return;
+
+            node.capabilities = readOnly
+                ? Capabilities.Selectable
+                : Capabilities.Selectable | Capabilities.Movable;
+
+            SetPortReadOnly(node.InputPort);
+            SetPortReadOnly(node.OutputPort);
+        }
+
+        private void SetPortReadOnly(Port port)
+        {
+            if (port == null)
+                return;
+
+            port.pickingMode = readOnly ? PickingMode.Ignore : PickingMode.Position;
+            port.style.opacity = readOnly ? 0.4f : 1f;
         }
 
         public void LoadMachine(string machineId)
@@ -79,15 +364,17 @@ namespace UnityHFSM.Graph.Editor
 
             entryNode = new PseudoGraphNode(PseudoNodeKind.Entry, machineId, this, true);
             anyStateNode = new PseudoGraphNode(PseudoNodeKind.AnyState, machineId, this, true);
-            exitNode = new PseudoGraphNode(PseudoNodeKind.Exit, machineId, this, !isRoot);
-
             entryNode.SetPosition(new Rect(machine.entryPosition, PseudoNodeSize));
             anyStateNode.SetPosition(new Rect(machine.anyStatePosition, PseudoNodeSize));
-            exitNode.SetPosition(new Rect(machine.exitPosition, PseudoNodeSize));
-
             AddElement(entryNode);
             AddElement(anyStateNode);
-            AddElement(exitNode);
+
+            if (!isRoot)
+            {
+                exitNode = new PseudoGraphNode(PseudoNodeKind.Exit, machineId, this, true);
+                exitNode.SetPosition(new Rect(machine.exitPosition, PseudoNodeSize));
+                AddElement(exitNode);
+            }
 
             GraphModel model = Controller.Model;
             for (int i = 0; i < model.states.Count; i++)
@@ -142,7 +429,7 @@ namespace UnityHFSM.Graph.Editor
 
                 if (transition.target == TransitionTargetKind.Exit)
                 {
-                    inputPort = exitNode.InputPort;
+                    inputPort = exitNode != null ? exitNode.InputPort : null;
                 }
                 else if (transition.toStateId != null
                     && stateNodesById.TryGetValue(transition.toStateId, out StateGraphNode toNode))
@@ -169,7 +456,24 @@ namespace UnityHFSM.Graph.Editor
             }
 
             graphViewChanged = OnGraphViewChanged;
+            ApplyReadOnlyState();
+            UpdateEmptyHint();
             suppressChanges = false;
+        }
+
+        private void UpdateEmptyHint()
+        {
+            if (emptyHint == null)
+                return;
+
+            bool empty = Controller != null
+                && Controller.Model != null
+                && Controller.FindMachine(CurrentMachineId) != null
+                && stateNodesById.Count == 0;
+            emptyHint.style.display = empty ? DisplayStyle.Flex : DisplayStyle.None;
+            emptyHint.text = readOnly
+                ? "This machine has no states."
+                : "This machine is empty. Use + Add in the mode bar or right-click the canvas.";
         }
 
         public void RefreshGraph()
@@ -188,36 +492,62 @@ namespace UnityHFSM.Graph.Editor
             if (evt.target is GraphView)
             {
                 evt.menu.AppendAction("Frame All", _ => FrameGraph());
-                evt.menu.AppendSeparator();
+                evt.menu.AppendAction("Center on Selection", _ => FrameSelectionSafe());
 
-                bool canCreate = Controller != null && !string.IsNullOrEmpty(CurrentMachineId);
-                Vector2 position = canCreate
-                    ? contentViewContainer.WorldToLocal(evt.mousePosition) - StateNodeSize * 0.5f
-                    : Vector2.zero;
+                if (!readOnly)
+                {
+                    evt.menu.AppendSeparator();
 
-                evt.menu.AppendAction(
-                    "Create State",
-                    _ => CreateStateAt(position),
-                    canCreate ? DropdownMenuAction.Status.Normal : DropdownMenuAction.Status.Disabled);
+                    bool canCreate = Controller != null && !string.IsNullOrEmpty(CurrentMachineId);
+                    Vector2 position = canCreate
+                        ? contentViewContainer.WorldToLocal(evt.mousePosition) - StateNodeSize * 0.5f
+                        : Vector2.zero;
 
-                evt.menu.AppendAction(
-                    "Create Sub-State Machine",
-                    _ => CreateSubMachineAt(position),
-                    canCreate ? DropdownMenuAction.Status.Normal : DropdownMenuAction.Status.Disabled);
+                    evt.menu.AppendAction(
+                        "Create State",
+                        _ => CreateStateAt(position),
+                        canCreate ? DropdownMenuAction.Status.Normal : DropdownMenuAction.Status.Disabled);
 
-                evt.menu.AppendSeparator();
+                    evt.menu.AppendAction(
+                        "Create Sub-State Machine",
+                        _ => CreateSubMachineAt(position),
+                        canCreate ? DropdownMenuAction.Status.Normal : DropdownMenuAction.Status.Disabled);
+                }
             }
 
-            evt.menu.AppendAction(
-                "Delete",
-                _ => DeleteSelection(),
-                HasDeletableSelection()
-                    ? DropdownMenuAction.Status.Normal
-                    : DropdownMenuAction.Status.Disabled);
+            if (!readOnly)
+            {
+                if (commands != null && evt.target is StateGraphNode stateTarget)
+                {
+                    evt.menu.AppendSeparator();
+                    evt.menu.AppendAction("Make Transition", _ =>
+                    {
+                        commands.Authoring.BeginLink();
+                        commands.Authoring.SetLinkSource(stateTarget.StateId);
+                    });
+                }
+
+                evt.menu.AppendSeparator();
+                evt.menu.AppendAction(
+                    "Delete",
+                    _ => DeleteSelection(),
+                    HasDeletableSelection()
+                        ? DropdownMenuAction.Status.Normal
+                        : DropdownMenuAction.Status.Disabled);
+            }
         }
 
         public string CreateStateAt(Vector2 position)
         {
+            if (readOnly)
+                return null;
+
+            if (commands != null)
+            {
+                GraphCommandResult result = commands.Authoring.CreateState(position);
+                return result.Success ? result.Value : null;
+            }
+
             if (Controller == null || string.IsNullOrEmpty(CurrentMachineId))
                 return null;
 
@@ -228,6 +558,15 @@ namespace UnityHFSM.Graph.Editor
 
         public string CreateSubMachineAt(Vector2 position)
         {
+            if (readOnly)
+                return null;
+
+            if (commands != null)
+            {
+                GraphCommandResult result = commands.Authoring.CreateSubMachine(position);
+                return result.Success ? result.Value : null;
+            }
+
             if (Controller == null || string.IsNullOrEmpty(CurrentMachineId))
                 return null;
 
@@ -274,13 +613,71 @@ namespace UnityHFSM.Graph.Editor
 
         public void CreateConnection(Port outputPort, Port inputPort)
         {
-            if (Controller == null || string.IsNullOrEmpty(CurrentMachineId) || outputPort == null || inputPort == null)
+            if (readOnly || Controller == null || string.IsNullOrEmpty(CurrentMachineId)
+                || outputPort == null || inputPort == null)
+            {
                 return;
+            }
 
             Node fromNode = outputPort.node;
             Node toNode = inputPort.node;
             if (fromNode == null || toNode == null)
                 return;
+
+            if (commands != null && session != null)
+            {
+                GraphConnectSourceKind sourceKind;
+                string sourceStateId;
+
+                if (fromNode is StateGraphNode commandFromState)
+                {
+                    sourceKind = GraphConnectSourceKind.State;
+                    sourceStateId = commandFromState.StateId;
+                }
+                else if (fromNode is PseudoGraphNode any && any.Kind == PseudoNodeKind.AnyState)
+                {
+                    sourceKind = GraphConnectSourceKind.AnyState;
+                    sourceStateId = string.Empty;
+                }
+                else if (fromNode is PseudoGraphNode entrySource
+                    && entrySource.Kind == PseudoNodeKind.Entry)
+                {
+                    sourceKind = GraphConnectSourceKind.Entry;
+                    sourceStateId = string.Empty;
+                }
+                else
+                {
+                    return;
+                }
+
+                GraphConnectTargetKind targetKind;
+                string targetStateId;
+
+                if (toNode is StateGraphNode commandToState)
+                {
+                    targetKind = GraphConnectTargetKind.State;
+                    targetStateId = commandToState.StateId;
+                }
+                else if (toNode is PseudoGraphNode exitTarget
+                    && exitTarget.Kind == PseudoNodeKind.Exit
+                    && exitTarget.ExitEnabled)
+                {
+                    targetKind = GraphConnectTargetKind.Exit;
+                    targetStateId = string.Empty;
+                }
+                else
+                {
+                    return;
+                }
+
+                GraphCommandResult result = commands.Authoring.Connect(
+                    new GraphConnectionRequest(sourceKind, sourceStateId, targetKind, targetStateId));
+
+                if (!result.Success)
+                    RefreshGraph();
+
+                return;
+            }
 
             if (fromNode is PseudoGraphNode entry && entry.Kind == PseudoNodeKind.Entry)
             {
@@ -336,7 +733,7 @@ namespace UnityHFSM.Graph.Editor
         public override List<Port> GetCompatiblePorts(Port startPort, NodeAdapter nodeAdapter)
         {
             var compatible = new List<Port>();
-            if (startPort == null)
+            if (readOnly || startPort == null)
                 return compatible;
 
             ports.ForEach(port =>
@@ -348,6 +745,14 @@ namespace UnityHFSM.Graph.Editor
                 Node endNode = port.node;
                 if (startNode == null || endNode == null)
                     return;
+
+                // Entry only connects to a state (never directly to Exit).
+                if (startNode is PseudoGraphNode startPseudo
+                    && startPseudo.Kind == PseudoNodeKind.Entry
+                    && !(endNode is StateGraphNode))
+                {
+                    return;
+                }
 
                 if (startPort.direction == Direction.Output)
                 {
@@ -557,6 +962,20 @@ namespace UnityHFSM.Graph.Editor
             UpdateViewTransform(Vector3.zero, Vector3.one);
         }
 
+        void IGraphEditorCanvasHost.FrameAll() => FrameAll();
+
+        void IGraphEditorCanvasHost.FrameSelection() => FrameSelectionSafe();
+
+        void IGraphEditorCanvasHost.ResetZoom() => ResetZoom();
+
+        void IGraphEditorCanvasHost.SetGridVisible(bool visible) => SetGridVisible(visible);
+
+        Vector2 IGraphEditorCanvasHost.GetDefaultCreatePosition()
+        {
+            Vector2 center = worldBound.center;
+            return contentViewContainer.WorldToLocal(center) - StateNodeSize * 0.5f;
+        }
+
         private static string BuildStateBadges(StateDef state)
         {
             if (state == null)
@@ -662,8 +1081,10 @@ namespace UnityHFSM.Graph.Editor
             entryNode = null;
             anyStateNode = null;
             exitNode = null;
+            linkSourceNode = null;
 
             graphViewChanged = OnGraphViewChanged;
+            UpdateEmptyHint();
         }
 
         private void AddTransitionEdge(
@@ -700,6 +1121,65 @@ namespace UnityHFSM.Graph.Editor
         {
             if (suppressChanges || Controller == null)
                 return change;
+
+            if (readOnly)
+            {
+                change.elementsToRemove = null;
+                return change;
+            }
+
+            if (commands != null && session != null)
+            {
+                if (change.movedElements != null)
+                {
+                    for (int i = 0; i < change.movedElements.Count; i++)
+                    {
+                        GraphElement element = change.movedElements[i];
+                        if (element is StateGraphNode stateNode)
+                            commands.Authoring.MoveState(stateNode.StateId, stateNode.GetPosition().position);
+                        else if (element is PseudoGraphNode pseudoNode)
+                            commands.Authoring.MovePseudoNode(pseudoNode.Kind, pseudoNode.GetPosition().position);
+                    }
+                }
+
+                if (change.elementsToRemove != null && change.elementsToRemove.Count > 0)
+                {
+                    var items = new List<GraphEditorSelectionItem>();
+                    for (int i = 0; i < change.elementsToRemove.Count; i++)
+                    {
+                        GraphElement element = change.elementsToRemove[i];
+                        if (element is StateGraphNode removedState)
+                            items.Add(new GraphEditorSelectionItem(
+                                GraphEditorSelectionItemKind.State,
+                                removedState.StateId));
+                        else if (element is TransitionEdge removedEdge
+                            && !removedEdge.IsEntryEdge
+                            && !string.IsNullOrEmpty(removedEdge.TransitionId))
+                            items.Add(new GraphEditorSelectionItem(
+                                GraphEditorSelectionItemKind.Transition,
+                                removedEdge.TransitionId));
+                    }
+
+                    change.elementsToRemove = null;
+
+                    if (items.Count > 0)
+                    {
+                        GraphEditorSelection next = GraphEditorSelection.Multi(items);
+                        EditorApplication.delayCall += () =>
+                        {
+                            if (commands == null || session == null)
+                                return;
+
+                            if (!next.Equals(session.Selection))
+                                commands.Navigation.Select(next, true);
+
+                            commands.Authoring.DeleteSelection();
+                        };
+                    }
+                }
+
+                return change;
+            }
 
             if (change.movedElements != null)
             {
@@ -762,6 +1242,12 @@ namespace UnityHFSM.Graph.Editor
 
         private void OpenSubMachine(string hostStateId)
         {
+            if (commands != null)
+            {
+                commands.Navigation.OpenSubMachine(hostStateId);
+                return;
+            }
+
             if (Controller == null)
                 return;
 

@@ -54,7 +54,7 @@ namespace UnityHFSM.Graph.Tests
         }
 
         [Test]
-        public void SessionAutoSelectsOnlyTheMatchingGraph()
+        public void LiveSessionAutoSelectsOnlyTheMatchingGraph()
         {
             GraphModel firstModel = GraphTestFactory.CreateTwoState(
                 out _,
@@ -69,29 +69,16 @@ namespace UnityHFSM.Graph.Tests
 
             using (var first = new GraphRuntime(firstModel))
             using (var second = new GraphRuntime(secondModel))
-            using (var session = new RuntimeSession(null))
+            using (var live = new LiveRuntimeSession())
             {
-                session.SetGraphId(firstModel.graphId);
-                session.RefreshLiveTargets();
+                live.SetGraphId(firstModel.graphId);
 
-                Assert.GreaterOrEqual(session.Targets.Count, 2);
-                Assert.IsNotNull(session.SelectedTarget);
-                Assert.AreSame(first, session.SelectedTarget.Runtime);
-                Assert.AreSame(first, session.CurrentRuntime);
+                Assert.AreEqual(1, live.Targets.Count);
+                Assert.AreSame(first, live.Targets[0].Runtime);
+                Assert.AreSame(first, live.CurrentRuntime);
 
-                int secondIndex = -1;
-                for (int i = 0; i < session.Targets.Count; i++)
-                {
-                    if (ReferenceEquals(session.Targets[i].Runtime, second))
-                    {
-                        secondIndex = i;
-                        break;
-                    }
-                }
-
-                Assert.GreaterOrEqual(secondIndex, 0);
-                session.SelectTarget(secondIndex);
-                Assert.AreSame(second, session.CurrentRuntime);
+                for (int i = 0; i < live.Targets.Count; i++)
+                    Assert.AreNotSame(second, live.Targets[i].Runtime);
             }
         }
     }

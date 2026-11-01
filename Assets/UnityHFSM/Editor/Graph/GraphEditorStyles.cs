@@ -7,9 +7,7 @@ namespace UnityHFSM.Graph.Editor
 {
     internal static class GraphEditorStyles
     {
-        public const float HeaderHeight = 24f;
-        public const float ToolbarHeight = 30f;
-        public const float DrawerTabHeight = 26f;
+        public const float HeaderHeight = GraphEditorMetrics.PanelHeaderHeight;
 
         public static Color PreviewColor => EditorGUIUtility.isProSkin
             ? new Color(0.40f, 0.80f, 0.55f)
@@ -136,7 +134,7 @@ namespace UnityHFSM.Graph.Editor
         {
             var label = new Label(text);
             label.style.color = new StyleColor(MutedTextColor);
-            label.style.fontSize = 11f;
+            label.style.fontSize = GraphEditorMetrics.FontSize;
             label.style.whiteSpace = WhiteSpace.NoWrap;
             label.style.textOverflow = TextOverflow.Ellipsis;
             label.style.overflow = Overflow.Hidden;
@@ -157,14 +155,14 @@ namespace UnityHFSM.Graph.Editor
         public static Button CreateBreadcrumbButton(string text, Action onClick)
         {
             var button = new Button(onClick) { text = text };
-            button.style.height = 18f;
+            button.style.height = GraphEditorMetrics.SmallControlHeight;
             button.style.marginLeft = 0f;
             button.style.marginRight = 0f;
             button.style.marginTop = 0f;
             button.style.marginBottom = 0f;
             button.style.paddingLeft = 5f;
             button.style.paddingRight = 5f;
-            button.style.fontSize = 11f;
+            button.style.fontSize = GraphEditorMetrics.FontSize;
             button.style.whiteSpace = WhiteSpace.NoWrap;
             button.style.textOverflow = TextOverflow.Ellipsis;
             button.style.overflow = Overflow.Hidden;
@@ -174,20 +172,11 @@ namespace UnityHFSM.Graph.Editor
             return button;
         }
 
-        public static Label CreateStatusLabel()
-        {
-            Label label = CreateMutedLabel();
-            label.style.unityFontStyleAndWeight = FontStyle.Italic;
-            label.style.maxWidth = 260f;
-            label.style.marginRight = 4f;
-            return label;
-        }
-
         public static Button CreateToolButton(string text, string tooltip, Action onClick = null)
         {
             var button = new Button(onClick) { text = text };
             button.tooltip = tooltip;
-            button.style.height = 20f;
+            button.style.height = GraphEditorMetrics.ControlHeight;
             button.style.minWidth = 22f;
             button.style.marginLeft = 1f;
             button.style.marginRight = 1f;
@@ -195,35 +184,11 @@ namespace UnityHFSM.Graph.Editor
             button.style.marginBottom = 0f;
             button.style.paddingLeft = 5f;
             button.style.paddingRight = 5f;
-            button.style.fontSize = 11f;
+            button.style.fontSize = GraphEditorMetrics.FontSize;
             button.style.flexShrink = 0f;
             button.style.whiteSpace = WhiteSpace.NoWrap;
             return button;
         }
 
-        public static Button CreateBadgeButton(string text, string tooltip)
-        {
-            var button = new Button { text = text };
-            button.tooltip = tooltip;
-            button.style.height = 20f;
-            button.style.marginLeft = 2f;
-            button.style.marginRight = 2f;
-            button.style.marginTop = 0f;
-            button.style.marginBottom = 0f;
-            button.style.paddingLeft = 6f;
-            button.style.paddingRight = 6f;
-            button.style.fontSize = 10f;
-            button.style.unityFontStyleAndWeight = FontStyle.Bold;
-            button.style.flexShrink = 0f;
-            return button;
-        }
-
-        public static void ClearMargins(VisualElement element)
-        {
-            element.style.marginLeft = 0f;
-            element.style.marginRight = 0f;
-            element.style.marginTop = 0f;
-            element.style.marginBottom = 0f;
-        }
     }
 }

@@ -109,18 +109,18 @@ namespace UnityHFSM.Graph.Editor
             NotifyChanged();
         }
 
-        public void RenameState(string stateId, string name)
+        public bool RenameState(string stateId, string name)
         {
             StateDef state = FindState(stateId);
             if (state == null)
-                return;
+                return false;
 
             string trimmed = (name ?? string.Empty).Trim();
             if (trimmed.Length == 0 || StateNameExists(state.machineId, trimmed, state.id))
-                return;
+                return false;
 
             if (state.name == trimmed)
-                return;
+                return true;
 
             RecordComplete("Rename State");
             state.name = trimmed;
@@ -133,6 +133,7 @@ namespace UnityHFSM.Graph.Editor
             }
 
             NotifyChanged();
+            return true;
         }
 
         public void SetStartState(string machineId, string stateId)
@@ -388,22 +389,23 @@ namespace UnityHFSM.Graph.Editor
             NotifyChanged();
         }
 
-        public void RenameParameter(string parameterId, string name)
+        public bool RenameParameter(string parameterId, string name)
         {
             ParameterDef parameter = FindParameter(parameterId);
             if (parameter == null)
-                return;
+                return false;
 
             string trimmed = (name ?? string.Empty).Trim();
             if (trimmed.Length == 0 || ParameterNameExists(trimmed, parameterId))
-                return;
+                return false;
 
             if (parameter.name == trimmed)
-                return;
+                return true;
 
             RecordComplete("Rename Parameter");
             parameter.name = trimmed;
             NotifyChanged();
+            return true;
         }
 
         public void SetParameterType(string parameterId, BlackboardParameterType type)

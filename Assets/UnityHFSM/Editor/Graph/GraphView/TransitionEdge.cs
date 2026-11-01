@@ -25,11 +25,6 @@ namespace UnityHFSM.Graph.Editor
             ApplyColors();
         }
 
-        public void SetColor(Color color)
-        {
-            SetBaseColor(color);
-        }
-
         public void SetHighlight(Color color, float width)
         {
             highlightColor = color;

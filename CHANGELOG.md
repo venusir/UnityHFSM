@@ -4,31 +4,34 @@
 
 ### Added
 
-- Optional Animator-style graph editor: `StateMachineGraphAsset`, GraphView editing for states/sub-state machines/Any State/Entry/Exit, blackboard parameters (Float/Int/Bool/Trigger), transition conditions, `StateBehaviour` assets, `StateMachineRunner`, and runtime highlighting/pause/step/rebuild.
-- The graph editor follows the selected GameObject's `StateMachineRunner`, with an Animator-style lock toggle. Selections without a runner or graph keep the current graph and show an inline hint.
-- Animator-style graph creation: right-click the canvas for **Create State** and **Create Sub-State Machine**.
+- Optional Animator-style graph editor: `StateMachineGraphAsset`, GraphView editing for states/sub-state machines/Any State/Entry/Exit, blackboard parameters (Float/Int/Bool/Trigger), transition conditions, `StateBehaviour` assets, `StateMachineRunner`, and runtime highlighting/pause/step/reset.
+- The graph editor follows the selected graph asset or a GameObject with an optional `StateMachineRunner`; a follow/lock control pins the current document.
+- Graph creation via **+ Add** in the mode bar or the canvas context menu; transitions via port drag or **Link**.
 - The blackboard is now a compact **Parameters** panel: a **+** menu adds Float/Int/Bool/Trigger parameters, rows edit name and value inline, and right-click deletes a row. Parameter types are fixed after creation.
 - New additive runtime assembly `UnityHFSM.Graph` and editor assembly `UnityHFSM.Graph.Editor`. The existing code-first API is unchanged.
-- Resizable and collapsible editor panes with persisted sizes, a compact Animator-style toolbar (preview play/pause/step/restart, speed, runtime target, validation badge, view menu), and a **Find** palette for states, machines and transitions.
-- Edit-mode graph preview without Play Mode or a scene object, including live parameter values, an Inspector runtime section with per-condition results, active/pending node highlights, pending-edge highlights and committed-transition flashes.
-- Editor-only `GraphRuntimeRegistry` plus `GraphRuntimeOptions.DebugName`: pure C# `GraphRuntime` instances are discovered automatically in Play Mode without a MonoBehaviour. The registry is compiled out of player builds.
-- Collapsed-by-default bottom drawer with **Validation** and **Runtime Log** tabs; validation issues and transition-log entries are clickable and navigate to their graph elements. Node badges show sub-machine/exit-time/ghost/behaviour metadata.
+- Two-row editor header: a **Document** bar for asset/follow/lock, history, breadcrumb and **Find**, and a **Mode** bar for mode-specific commands, status, Console and View menu. Resizable Parameters/Inspector panes and a persisted Console drawer.
+- Explicit **Edit**, **Preview** and **Live** modes. Preview/Live are read-only for graph structure; selection, navigation, zoom and live parameter values remain available. Preview has Pause/Step/Reset/Stop and speed; Live has Pause/Step and a matching-runtime target selector.
+- Edit-mode graph preview without Play Mode or a scene object, including live parameter values, active/pending node highlights, pending-edge highlights, committed-transition flashes and a dedicated **Runtime** Inspector tab with target, active path and condition results.
+- Editor-only `GraphRuntimeRegistry` plus `GraphRuntimeOptions.DebugName`: pure C# `GraphRuntime` instances are discovered automatically in Play Mode without a MonoBehaviour. Preview runtimes are excluded across windows, and the registry is compiled out of player builds.
+- Collapsed-by-default **Console** with **Validation** and **Runtime Log** tabs; issue and log rows are clickable and navigate to their graph elements. **+ Add**, **Link**, Delete and multi-selection support the canvas workflow. Node badges show sub-machine/exit-time/ghost/behaviour metadata.
 - `ConditionEvaluator.Evaluate` and `EvaluateCondition` provide non-consuming evaluation for editor inspection; `GraphRuntimeSnapshot.pendingTransitionId` identifies the exact pending transition.
 - Graph Editor sample (`Samples/GraphEditor`) with an example `StateMachineGraphAsset` and a README covering preview and UPM installation.
 
 ### Changed
 
-- Reworked the graph window hierarchy: removed the top toolbar (**Graph** object field, Frame/Save/Validate, full-width follow status), moved the breadcrumb, **Lock** and a compact follow hint into a graph header band, added uniform section headers and 1px separators for Parameters, Inspector, Graph, Validation and Runtime, and moved framing to the canvas context menu (**Frame All**).
-- Removed the **Add State** / **Add Sub-State Machine** toolbar buttons; creation now lives in the graph context menu. Replaced the blackboard rows with the Parameters panel.
+- Replaced the single-row toolbar with a two-row document/mode header, moved runtime state into the graph, Parameters, a tabbed Runtime Inspector and a collapsible Console, and made the canvas context menu secondary to visible **+ Add** / **Link** / **Delete** commands.
 - The repository is now a Unity 6000.4.5f1 development project using the standard `Runtime/`, `Editor/`, `Tests/Editor/`, `Samples/` and `Documentation~/` layout.
 - `HfsmAnimatorGraph` moved from the `UnityHFSM` runtime assembly to the `UnityHFSM.Editor` assembly. Custom editor assembly definitions that use it must reference `UnityHFSM.Editor`.
-- Removed the permanent **Runtime** panel. Runtime state is now shown inline on the graph, in **Parameters**, in the **Inspector**, and in the collapsible **Runtime Log** drawer. The public editor class `UnityHFSM.Graph.Editor.RuntimePanel` was removed as part of this change.
-- `GraphEditorController` now exposes `Dirty` for in-place edits (positions, delays, conditions, toggles) in addition to the structural `Changed` event.
+- Removed the permanent **Runtime** panel. Runtime state is now shown on the graph, in **Parameters**, in the **Runtime** Inspector tab, and in the Console's Runtime Log. The public editor class `UnityHFSM.Graph.Editor.RuntimePanel` was removed as part of this change.
+- `GraphEditorController` now exposes `Dirty` for in-place edits (positions, delays, conditions, toggles) in addition to the structural `Changed` event. `RenameState` and `RenameParameter` now return whether the rename succeeded.
+- The graph editor is now split into `Session` (single mode/selection/navigation/runtime state), `Commands` (document, navigation, authoring, runtime, layout, diagnostics), and `Views` (document bar, mode bar, parameters, tabbed inspector, console, layout). Views no longer mutate the controller directly.
+- Preview/Live no longer use an out-of-date flag or manual Restart-to-apply workflow; the graph is read-only while a runtime is active, and Preview exposes an explicit Stop/Reset.
 
 ### Removed
 
 - The `GuardAI` and `Sample3d` package samples, along with their `package.json` sample entries. The Graph Editor sample and the code-first README examples remain.
 - The project-only `Assets/Dev` Playground smoke scene, its `FsmPlayground` script, and the **Tools > UnityHFSM > Create Dev Scene** tool. The EditMode test suite and the graph editor preview now cover these scenarios.
+- The monolithic editor UI types `GraphToolbar`, `BlackboardPanel`, `InspectorPanel`, `BottomDrawer`, `ValidationPanel`, `RuntimeLogPanel`, `RuntimeSession`, and the stale/fingerprint helper `GraphModelFingerprint`. Their replacements are the Session/Commands/Views types described above. This is a source-level editor API break; the runtime `GraphRuntime` API is unchanged.
 
 ## 2.3
 

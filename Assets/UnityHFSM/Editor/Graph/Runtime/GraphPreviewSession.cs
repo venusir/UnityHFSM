@@ -35,7 +35,6 @@ namespace UnityHFSM.Graph.Editor
         public bool IsPaused => isPaused;
         public string LastError => lastError;
         public GraphValidationResult LastValidation => lastValidation;
-        public string Fingerprint { get; private set; } = string.Empty;
 
         public float Speed
         {
@@ -97,10 +96,10 @@ namespace UnityHFSM.Graph.Editor
             }
 
             runtime = next;
+            PreviewRuntimeTracker.Track(next);
             isRunning = true;
             isPaused = false;
             lastTime = -1d;
-            Fingerprint = GraphModelFingerprint.Compute(model);
             NotifyChanged();
             return true;
         }
@@ -115,10 +114,13 @@ namespace UnityHFSM.Graph.Editor
             isRunning = false;
             isPaused = false;
             lastTime = -1d;
-            Fingerprint = string.Empty;
+            lastError = null;
+            lastValidation = null;
 
             if (previous != null)
             {
+                PreviewRuntimeTracker.Untrack(previous);
+
                 try
                 {
                     previous.Dispose();
@@ -178,15 +180,18 @@ namespace UnityHFSM.Graph.Editor
             }
 
             runtime = next;
+            PreviewRuntimeTracker.Track(next);
             isRunning = true;
             isPaused = false;
             lastTime = -1d;
             lastError = null;
             lastValidation = null;
-            Fingerprint = GraphModelFingerprint.Compute(model);
 
             if (previous != null)
+            {
+                PreviewRuntimeTracker.Untrack(previous);
                 SafeDispose(previous);
+            }
 
             NotifyChanged();
             return true;

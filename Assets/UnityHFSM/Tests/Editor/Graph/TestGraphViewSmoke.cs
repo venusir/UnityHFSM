@@ -1,7 +1,9 @@
 using System.Linq;
 using NUnit.Framework;
+using UnityEditor.Experimental.GraphView;
 using UnityHFSM.Graph.Editor;
 using UnityEngine;
+using UnityEngine.UIElements;
 
 namespace UnityHFSM.Graph.Tests
 {
@@ -36,7 +38,7 @@ namespace UnityHFSM.Graph.Tests
 
                 view.LoadMachine(rootId);
 
-                Assert.AreEqual(5, view.nodes.Count());
+                Assert.AreEqual(4, view.nodes.Count()); // Entry, Any State, two states; no root Exit
                 Assert.AreEqual(2, view.edges.Count());
             }
             finally
@@ -107,6 +109,72 @@ namespace UnityHFSM.Graph.Tests
                 Assert.IsTrue(node.IsSubMachine);
                 Assert.AreEqual(1, view.selection.Count);
                 Assert.AreSame(node, view.selection[0]);
+            }
+            finally
+            {
+                Object.DestroyImmediate(asset);
+            }
+        }
+
+        [Test]
+        public void ReadOnlyBlocksAuthoringAndRestoresWhenDisabled()
+        {
+            var asset = ScriptableObject.CreateInstance<StateMachineGraphAsset>();
+
+            try
+            {
+                asset.SetGraph(GraphModelFactory.CreateNew());
+                var controller = new GraphEditorController(asset);
+                var view = new StateMachineGraphView { Controller = controller };
+                view.LoadMachine(asset.Graph.rootMachineId);
+
+                view.SetReadOnly(true);
+
+                Assert.IsNull(view.CreateStateAt(Vector2.zero));
+                Assert.AreEqual(EventPropagation.Stop, view.DeleteSelection());
+
+                StateGraphNode node = view.nodes.OfType<StateGraphNode>().First();
+                Assert.IsFalse((node.capabilities & Capabilities.Movable) != 0);
+                Assert.IsFalse((node.capabilities & Capabilities.Deletable) != 0);
+                Assert.AreEqual(PickingMode.Ignore, node.InputPort.pickingMode);
+
+                view.SetReadOnly(false);
+
+                Assert.IsTrue((node.capabilities & Capabilities.Movable) != 0);
+                Assert.AreEqual(PickingMode.Position, node.InputPort.pickingMode);
+            }
+            finally
+            {
+                Object.DestroyImmediate(asset);
+            }
+        }
+
+        [Test]
+        public void RootMachineHasNoExitPseudoNodeButChildMachineDoes()
+        {
+            GraphModel model = GraphTestFactory.CreateNested(
+                out MachineDef root,
+                out _,
+                out MachineDef child,
+                out _,
+                out _,
+                out _);
+
+            var asset = ScriptableObject.CreateInstance<StateMachineGraphAsset>();
+
+            try
+            {
+                asset.SetGraph(model);
+                var controller = new GraphEditorController(asset);
+                var view = new StateMachineGraphView { Controller = controller };
+
+                view.LoadMachine(root.id);
+                Assert.IsFalse(view.nodes.OfType<PseudoGraphNode>()
+                    .Any(node => node.Kind == PseudoNodeKind.Exit));
+
+                view.LoadMachine(child.id);
+                Assert.IsTrue(view.nodes.OfType<PseudoGraphNode>()
+                    .Any(node => node.Kind == PseudoNodeKind.Exit));
             }
             finally
             {

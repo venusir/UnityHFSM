@@ -6,25 +6,25 @@
 
 - Optional Animator-style graph editor: `StateMachineGraphAsset`, GraphView editing for states/sub-state machines/Any State/Entry/Exit, blackboard parameters (Float/Int/Bool/Trigger), transition conditions, `StateBehaviour` assets, `StateMachineRunner`, and runtime highlighting/pause/step/reset.
 - The graph editor follows the selected graph asset or a GameObject with an optional `StateMachineRunner`; a follow/lock control pins the current document.
-- Graph creation via **+ Add** in the mode bar or the canvas context menu; transitions via port drag or **Link**.
-- The blackboard is now a compact **Parameters** panel: a **+** menu adds Float/Int/Bool/Trigger parameters, rows edit name and value inline, and right-click deletes a row. Parameter types are fixed after creation.
+- Graph creation via **+ Add** in the header bar or the canvas context menu; transitions via port drag or **Link**.
+- The blackboard is now a compact **Parameters** panel: a **+** menu adds Float/Int/Bool/Trigger parameters; rows use aligned name/value columns and edit values inline; a per-row **⋯** menu (or right-click) deletes a row. Parameter types are fixed after creation.
 - New additive runtime assembly `UnityHFSM.Graph` and editor assembly `UnityHFSM.Graph.Editor`. The existing code-first API is unchanged.
-- Two-row editor header: a **Document** bar for asset/follow/lock, history, breadcrumb and **Find**, and a **Mode** bar for mode-specific commands, status, Console and View menu. Resizable Parameters/Inspector panes and a persisted Console drawer.
+- Single-row editor header for asset/follow-lock, history, breadcrumb, mode-specific commands, **Find** and **View**, plus a bottom status bar for the mode pill, transient status and the **Problems**/**Runtime** Diagnostics entry. Resizable Parameters/Inspector panes and a persisted Diagnostics drawer.
 - Explicit **Edit**, **Preview** and **Live** modes. Preview/Live are read-only for graph structure; selection, navigation, zoom and live parameter values remain available. Preview has Pause/Step/Reset/Stop and speed; Live has Pause/Step and a matching-runtime target selector.
 - Edit-mode graph preview without Play Mode or a scene object, including live parameter values, active/pending node highlights, pending-edge highlights, committed-transition flashes and a dedicated **Runtime** Inspector tab with target, active path and condition results.
 - Editor-only `GraphRuntimeRegistry` plus `GraphRuntimeOptions.DebugName`: pure C# `GraphRuntime` instances are discovered automatically in Play Mode without a MonoBehaviour. Preview runtimes are excluded across windows, and the registry is compiled out of player builds.
-- Collapsed-by-default **Console** with **Validation** and **Runtime Log** tabs; issue and log rows are clickable and navigate to their graph elements. **+ Add**, **Link**, Delete and multi-selection support the canvas workflow. Node badges show sub-machine/exit-time/ghost/behaviour metadata.
+- Collapsed-by-default **Diagnostics** drawer whose content follows the mode: **Problems** (validation) while editing and **Runtime** (transition log/errors) while a runtime is active; its header can switch manually. Issue and log rows are clickable and navigate to their graph elements. State nodes show error/warning badges in addition to sub-machine/exit-time/ghost/behaviour metadata. **+ Add**, **Link**, **Delete** and multi-selection remain visible in the header.
 - `ConditionEvaluator.Evaluate` and `EvaluateCondition` provide non-consuming evaluation for editor inspection; `GraphRuntimeSnapshot.pendingTransitionId` identifies the exact pending transition.
 - Graph Editor sample (`Samples/GraphEditor`) with an example `StateMachineGraphAsset` and a README covering preview and UPM installation.
 
 ### Changed
 
-- Replaced the single-row toolbar with a two-row document/mode header, moved runtime state into the graph, Parameters, a tabbed Runtime Inspector and a collapsible Console, and made the canvas context menu secondary to visible **+ Add** / **Link** / **Delete** commands.
+- Replaced the two-row document/mode header with a single command bar plus a bottom status bar; kept **+ Add** / **Link** / **Delete** / **Find** visible, moved Follow/Lock into the document menu, and consolidated the Validation/Runtime Log tabs into a mode-aware Diagnostics drawer with inline state badges.
 - The repository is now a Unity 6000.4.5f1 development project using the standard `Runtime/`, `Editor/`, `Tests/Editor/`, `Samples/` and `Documentation~/` layout.
 - `HfsmAnimatorGraph` moved from the `UnityHFSM` runtime assembly to the `UnityHFSM.Editor` assembly. Custom editor assembly definitions that use it must reference `UnityHFSM.Editor`.
-- Removed the permanent **Runtime** panel. Runtime state is now shown on the graph, in **Parameters**, in the **Runtime** Inspector tab, and in the Console's Runtime Log. The public editor class `UnityHFSM.Graph.Editor.RuntimePanel` was removed as part of this change.
+- Removed the permanent **Runtime** panel. Runtime state is now shown on the graph, in **Parameters**, in the **Runtime** Inspector tab, and in Diagnostics' **Runtime** content. The public editor class `UnityHFSM.Graph.Editor.RuntimePanel` was removed as part of this change.
 - `GraphEditorController` now exposes `Dirty` for in-place edits (positions, delays, conditions, toggles) in addition to the structural `Changed` event. `RenameState` and `RenameParameter` now return whether the rename succeeded.
-- The graph editor is now split into `Session` (single mode/selection/navigation/runtime state), `Commands` (document, navigation, authoring, runtime, layout, diagnostics), and `Views` (document bar, mode bar, parameters, tabbed inspector, console, layout). Views no longer mutate the controller directly.
+- The graph editor is now split into `Session` (single mode/selection/navigation/runtime state), `Commands` (document, navigation, authoring, runtime, layout, diagnostics), and `Views` (header bar, status bar, diagnostics, parameters, tabbed inspector, layout). Views no longer mutate the controller directly. `GraphDocumentBar`, `GraphModeBar` and `GraphConsoleView` are renamed to `GraphStatusBar`, `GraphHeaderBar` and `GraphDiagnosticsView`.
 - Preview/Live no longer use an out-of-date flag or manual Restart-to-apply workflow; the graph is read-only while a runtime is active, and Preview exposes an explicit Stop/Reset.
 
 ### Removed

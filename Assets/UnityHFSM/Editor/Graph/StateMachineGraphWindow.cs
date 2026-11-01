@@ -16,8 +16,8 @@ namespace UnityHFSM.Graph.Editor
 
         private GraphEditorSession session;
         private GraphEditorCommands commands;
-        private GraphDocumentBar documentBar;
-        private GraphModeBar modeBar;
+        private GraphHeaderBar headerBar;
+        private GraphStatusBar statusBar;
         private GraphLayoutView layoutView;
         private bool registryRefreshQueued;
         private bool initialFramePending;
@@ -97,11 +97,11 @@ namespace UnityHFSM.Graph.Editor
                 rootVisualElement.UnregisterCallback<GeometryChangedEvent>(OnRootGeometryChanged);
             }
 
-            documentBar?.Unbind();
-            modeBar?.Unbind();
+            headerBar?.Unbind();
+            statusBar?.Unbind();
             layoutView?.Unbind();
-            documentBar = null;
-            modeBar = null;
+            headerBar = null;
+            statusBar = null;
             layoutView = null;
 
             commands?.Dispose();
@@ -129,20 +129,20 @@ namespace UnityHFSM.Graph.Editor
             rootVisualElement.style.flexGrow = 1f;
             rootVisualElement.focusable = true;
 
-            documentBar = new GraphDocumentBar();
-            rootVisualElement.Add(documentBar);
-
-            modeBar = new GraphModeBar();
-            rootVisualElement.Add(modeBar);
+            headerBar = new GraphHeaderBar();
+            rootVisualElement.Add(headerBar);
 
             layoutView = new GraphLayoutView();
             layoutView.style.flexGrow = 1f;
             layoutView.style.minHeight = 0f;
             rootVisualElement.Add(layoutView);
 
-            documentBar.Bind(session, commands);
-            modeBar.Bind(session, commands);
+            statusBar = new GraphStatusBar();
+            rootVisualElement.Add(statusBar);
+
+            headerBar.Bind(session, commands);
             layoutView.Bind(session, commands);
+            statusBar.Bind(session, commands);
 
             rootVisualElement.RegisterCallback<KeyDownEvent>(OnKeyDown);
             rootVisualElement.RegisterCallback<GeometryChangedEvent>(OnRootGeometryChanged);

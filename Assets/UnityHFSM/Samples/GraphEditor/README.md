@@ -15,12 +15,13 @@ point for experimenting with transitions, conditions and the blackboard.
 
 ## Preview without Play Mode
 
-Press **Preview** in the mode bar to run the graph directly in Edit Mode.
+Press **Preview** in the header bar to run the graph directly in Edit Mode.
 No Play Mode, scene object or MonoBehaviour is required. Use **Pause**,
-**Step**, **Reset** and the speed selector to inspect the simulation. The graph
-is read-only while previewing; **Stop** returns to editing. Active and pending
-states are highlighted on the graph, and the **Runtime** Inspector tab shows
-live state and condition information.
+**Step** and **Stop**; **Reset** and the speed selector live in the **⋯** menu.
+The graph is read-only while previewing; **Stop** returns to editing. Active and
+pending states are highlighted on the graph, the **Runtime** Inspector tab shows
+live state and condition information, and **Diagnostics → Runtime** lists the
+transition history.
 
 To run a graph from code, construct a `GraphRuntime` and tick it from your own
 update loop. In the editor, live runtimes are discovered automatically in Play

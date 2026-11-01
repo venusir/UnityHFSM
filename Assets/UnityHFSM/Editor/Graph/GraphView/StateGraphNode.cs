@@ -14,6 +14,7 @@ namespace UnityHFSM.Graph.Editor
         public Port OutputPort { get; }
 
         private readonly Label badgeLabel;
+        private readonly Label validationLabel;
 
         public StateGraphNode(
             string stateId,
@@ -50,7 +51,23 @@ namespace UnityHFSM.Graph.Editor
             badgeLabel.style.marginRight = 4f;
             badgeLabel.style.marginTop = 2f;
             badgeLabel.style.marginBottom = 0f;
+            badgeLabel.style.flexShrink = 1f;
+            badgeLabel.style.minWidth = 0f;
             badgeLabel.style.display = DisplayStyle.None;
+
+            validationLabel = new Label();
+            validationLabel.style.fontSize = 9f;
+            validationLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+            validationLabel.style.whiteSpace = WhiteSpace.NoWrap;
+            validationLabel.style.overflow = Overflow.Hidden;
+            validationLabel.style.textOverflow = TextOverflow.Ellipsis;
+            validationLabel.style.marginLeft = 4f;
+            validationLabel.style.marginRight = 4f;
+            validationLabel.style.marginTop = 2f;
+            validationLabel.style.marginBottom = 0f;
+            validationLabel.style.maxWidth = 70f;
+            validationLabel.style.flexShrink = 0f;
+            validationLabel.style.display = DisplayStyle.None;
 
             InputPort = Port.Create<TransitionEdge>(
                 Orientation.Horizontal,
@@ -107,18 +124,47 @@ namespace UnityHFSM.Graph.Editor
                 return;
             }
 
-            if (badgeLabel.parent == null)
+            EnsureBadgeHost();
+            badgeLabel.style.display = DisplayStyle.Flex;
+        }
+
+        public void SetValidationBadge(int errors, int warnings, string details)
+        {
+            if (validationLabel == null)
+                return;
+
+            if (errors <= 0 && warnings <= 0)
             {
-                VisualElement badgeHost = topContainer ?? mainContainer;
-                if (badgeHost != null)
-                {
-                    badgeHost.style.flexDirection = FlexDirection.Row;
-                    badgeHost.style.alignItems = Align.Center;
-                    badgeHost.Add(badgeLabel);
-                }
+                validationLabel.style.display = DisplayStyle.None;
+                validationLabel.tooltip = string.Empty;
+                return;
             }
 
-            badgeLabel.style.display = DisplayStyle.Flex;
+            validationLabel.text = errors > 0 ? "ERR " + errors : "WARN " + warnings;
+            validationLabel.style.color = new StyleColor(
+                errors > 0
+                    ? GraphEditorStyles.ErrorColor
+                    : GraphEditorStyles.WarningColor);
+            validationLabel.tooltip = details ?? string.Empty;
+
+            EnsureBadgeHost();
+            validationLabel.style.display = DisplayStyle.Flex;
+        }
+
+        private void EnsureBadgeHost()
+        {
+            VisualElement badgeHost = topContainer ?? mainContainer;
+            if (badgeHost == null)
+                return;
+
+            badgeHost.style.flexDirection = FlexDirection.Row;
+            badgeHost.style.alignItems = Align.Center;
+
+            if (validationLabel.parent == null)
+                badgeHost.Add(validationLabel);
+
+            if (badgeLabel.parent == null)
+                badgeHost.Add(badgeLabel);
         }
     }
 }

@@ -1,3 +1,5 @@
+using UnityHFSM.Graph;
+
 namespace UnityHFSM.Graph.Editor
 {
     /// <summary>
@@ -93,6 +95,27 @@ namespace UnityHFSM.Graph.Editor
                 default:
                     return GraphEditorParametersMode.Empty;
             }
+        }
+    }
+
+    /// <summary>
+    /// Chooses the Diagnostics content that matches the current mode. Validation
+    /// errors always win; otherwise Edit shows Problems and a running graph shows
+    /// the Runtime log.
+    /// </summary>
+    public static class GraphDiagnosticsPolicy
+    {
+        public static GraphConsoleTab ResolveContent(
+            GraphEditorMode mode,
+            GraphValidationResult validation)
+        {
+            if (validation != null && validation.HasErrors)
+                return GraphConsoleTab.Validation;
+
+            if (mode == GraphEditorMode.Author || mode == GraphEditorMode.NoDocument)
+                return GraphConsoleTab.Validation;
+
+            return GraphConsoleTab.RuntimeLog;
         }
     }
 }

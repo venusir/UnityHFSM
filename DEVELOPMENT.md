@@ -36,7 +36,7 @@ Assets/
       Graph/          # GraphView editor + UnityHFSM.Graph.Editor.asmdef
         Session/      # GraphEditorSession, mode, selection, navigation, layout state
         Commands/     # document/navigation/authoring/runtime/layout/diagnostics commands
-        Views/        # document bar, mode bar, parameters, inspector, console, layout
+        Views/        # header bar, status bar, diagnostics, parameters, inspector, layout
         GraphView/    # canvas, nodes, edges
     Tests/Editor/     # EditMode tests + UnityHFSM.Tests.asmdef
       Graph/          # graph runtime/editor tests + UnityHFSM.Graph.Tests.asmdef
@@ -84,15 +84,15 @@ used to live outside the package were replaced by the EditMode test suite.
 The graph editor is optional; code-first state machines continue to work exactly as before.
 
 1. Create a `StateMachineGraphAsset` and open it in **Tools > UnityHFSM > State Machine Editor**.
-2. The window has two header rows. **Document** contains the asset, follow/lock, Back/Forward, breadcrumb and **Find**. **Mode** contains commands for the current mode. Selecting a graph asset, double-clicking it, or selecting a GameObject with an optional `StateMachineRunner` follows its graph.
+2. The window has a single command header and a bottom status bar. The header contains the asset menu, follow/lock, Back/Forward, breadcrumb, current-mode commands, **Find** and **View**. The status bar shows the mode, transient messages and the **Problems**/**Runtime** Diagnostics entry. Selecting a graph asset, double-clicking it, or selecting a GameObject with an optional `StateMachineRunner` follows its graph.
 3. Modes are explicit: **Edit**, **Preview**, and **Live** in Play Mode. Preview/Live are read-only for graph structure; selection, navigation, zoom and live parameter values remain available.
 4. Drag the splitter next to **Parameters** / **Inspector** or the Console splitter to resize panes. The **View** menu toggles panels, grid, framing and zoom; layout state is serialized on the window.
 5. In Edit mode use **+ Add** or right-click for states/sub-state machines, drag ports or use **Link** for transitions, and **Delete** for the selection. **Find** (`Ctrl+F`) searches states, machines and transitions. Breadcrumb history supports Back/Forward.
-6. Manage parameters in **Parameters**: in Edit mode **+** adds Float/Int/Bool/Trigger and edits defaults; in Preview/Live the panel switches to live values and Trigger Set/Reset.
+6. Manage parameters in **Parameters**: in Edit mode **+** adds Float/Int/Bool/Trigger, edits defaults, and deletes rows via right-click or the row's **⋯** menu; in Preview/Live the panel switches to live values and Trigger Set/Reset.
 7. Select a transition and add conditions; conditions reference blackboard parameters. Create `StateBehaviour` ScriptableObject subclasses and assign them on a state.
-8. Press **Preview** in the Mode bar. No MonoBehaviour or Play Mode is required. Pause/Step/Reset/Stop and speed control the simulation; graph highlights, the **Runtime** Inspector tab and the Console show what happened. Stop Preview to edit again.
-9. To debug code-created runtimes, construct `GraphRuntime` normally and enter Play Mode. The editor-only `GraphRuntimeRegistry` discovers matching runtimes; choose a target in the Mode bar. `StateMachineRunner` remains supported for scene-hosted graphs.
-10. The **Console** is collapsed by default. **Validation** and **Runtime Log** live there; click an issue or log entry to navigate. Keyboard shortcuts are listed in the README and in tooltips.
+8. Press **Preview** in the header bar. No MonoBehaviour or Play Mode is required. Pause/Step/Stop control the simulation; **Reset** and speed live in the **⋯** menu. Graph highlights, the **Runtime** Inspector tab and Diagnostics show what happened. Stop Preview to edit again.
+9. To debug code-created runtimes, construct `GraphRuntime` normally and enter Play Mode. The editor-only `GraphRuntimeRegistry` discovers matching runtimes; choose a target in the header bar. `StateMachineRunner` remains supported for scene-hosted graphs.
+10. **Diagnostics** is collapsed by default. It shows **Problems** while editing and **Runtime** while a runtime is active, switching automatically; its header can switch manually. State nodes show error/warning badges, and clicking an issue or log entry navigates. Keyboard shortcuts are listed in the README and in tooltips.
 
 Graph runtime limitations in this version: animation clips, blend trees, avatar masks, layers and transition blend durations are intentionally out of scope. Importing an existing code-built FSM into the graph asset is not supported; the graph layer uses its own ScriptableObject-based asset format.
 

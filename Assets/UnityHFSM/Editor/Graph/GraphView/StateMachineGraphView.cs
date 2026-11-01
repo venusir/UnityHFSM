@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using UnityEditor;
 using UnityEditor.Experimental.GraphView;
 using UnityEngine;
@@ -141,6 +142,9 @@ namespace UnityHFSM.Graph.Editor
 
             if ((change & GraphEditorChange.Interaction) != 0)
                 UpdateLinkHighlight();
+
+            if ((change & GraphEditorChange.Validation) != 0)
+                RefreshValidationBadges();
         }
 
         private void UpdateLinkHighlight()
@@ -458,6 +462,7 @@ namespace UnityHFSM.Graph.Editor
             graphViewChanged = OnGraphViewChanged;
             ApplyReadOnlyState();
             UpdateEmptyHint();
+            RefreshValidationBadges();
             suppressChanges = false;
         }
 
@@ -473,7 +478,7 @@ namespace UnityHFSM.Graph.Editor
             emptyHint.style.display = empty ? DisplayStyle.Flex : DisplayStyle.None;
             emptyHint.text = readOnly
                 ? "This machine has no states."
-                : "This machine is empty. Use + Add in the mode bar or right-click the canvas.";
+                : "This machine is empty. Use + Add in the header bar or right-click the canvas.";
         }
 
         public void RefreshGraph()
@@ -921,6 +926,115 @@ namespace UnityHFSM.Graph.Editor
                 if (edgesByTransitionId.TryGetValue(transition.id, out TransitionEdge edge))
                     edge.tooltip = BuildTransitionTooltip(transition);
             }
+
+            RefreshValidationBadges();
+        }
+
+        private void RefreshValidationBadges()
+        {
+            if (session == null)
+                return;
+
+            var stateIssues = new Dictionary<string, List<GraphIssue>>(StringComparer.Ordinal);
+            var transitionIssues = new Dictionary<string, List<GraphIssue>>(StringComparer.Ordinal);
+
+            GraphValidationResult validation = session.Validation;
+            if (validation != null)
+            {
+                for (int i = 0; i < validation.Issues.Count; i++)
+                {
+                    GraphIssue issue = validation.Issues[i];
+                    if (issue == null)
+                        continue;
+
+                    if (!string.IsNullOrEmpty(issue.stateId))
+                        AddIssue(stateIssues, issue.stateId, issue);
+
+                    if (!string.IsNullOrEmpty(issue.transitionId))
+                        AddIssue(transitionIssues, issue.transitionId, issue);
+                }
+            }
+
+            foreach (KeyValuePair<string, StateGraphNode> pair in stateNodesById)
+            {
+                stateIssues.TryGetValue(pair.Key, out List<GraphIssue> issues);
+                string details = BuildIssueDetails(issues, out int errors, out int warnings);
+                pair.Value.SetValidationBadge(errors, warnings, details);
+            }
+
+            if (Controller == null || Controller.Model == null)
+                return;
+
+            for (int i = 0; i < Controller.Model.transitions.Count; i++)
+            {
+                TransitionDef transition = Controller.Model.transitions[i];
+                if (transition == null || string.IsNullOrEmpty(transition.id))
+                    continue;
+
+                if (!edgesByTransitionId.TryGetValue(transition.id, out TransitionEdge edge))
+                    continue;
+
+                string tooltip = BuildTransitionTooltip(transition);
+                transitionIssues.TryGetValue(transition.id, out List<GraphIssue> issues);
+                string details = BuildIssueDetails(issues, out _, out _);
+                if (!string.IsNullOrEmpty(details))
+                    tooltip += "\n\n" + details;
+
+                edge.tooltip = tooltip;
+            }
+        }
+
+        private static void AddIssue(
+            Dictionary<string, List<GraphIssue>> issuesById,
+            string id,
+            GraphIssue issue)
+        {
+            if (!issuesById.TryGetValue(id, out List<GraphIssue> issues))
+            {
+                issues = new List<GraphIssue>();
+                issuesById[id] = issues;
+            }
+
+            issues.Add(issue);
+        }
+
+        private static string BuildIssueDetails(
+            List<GraphIssue> issues,
+            out int errors,
+            out int warnings)
+        {
+            errors = 0;
+            warnings = 0;
+
+            if (issues == null || issues.Count == 0)
+                return string.Empty;
+
+            var builder = new StringBuilder();
+            int shown = 0;
+
+            for (int i = 0; i < issues.Count; i++)
+            {
+                GraphIssue issue = issues[i];
+                bool isError = issue.severity == GraphIssueSeverity.Error;
+
+                if (isError)
+                    errors++;
+                else
+                    warnings++;
+
+                if (shown < 5)
+                {
+                    builder.Append(isError ? "ERROR: " : "WARN: ")
+                        .Append(issue.message)
+                        .Append('\n');
+                    shown++;
+                }
+            }
+
+            if (shown < issues.Count)
+                builder.Append("…");
+
+            return builder.ToString().TrimEnd();
         }
 
         public void SelectState(string stateId)

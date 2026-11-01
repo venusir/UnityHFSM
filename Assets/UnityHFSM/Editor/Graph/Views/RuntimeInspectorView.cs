@@ -108,7 +108,7 @@ namespace UnityHFSM.Graph.Editor
             if (Session.Mode == GraphEditorMode.Author)
             {
                 content.Add(GraphEditorStyles.CreateMutedLabel(
-                    "Start Preview from the mode bar to inspect the simulation."));
+                    "Start Preview from the header bar to inspect the simulation."));
                 return;
             }
 

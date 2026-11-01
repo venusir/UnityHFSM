@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -7,6 +8,10 @@ namespace UnityHFSM.Graph.Editor
     /// <summary>Defaults in Author mode; live values in Preview/Live.</summary>
     public sealed class ParametersView : GraphEditorView
     {
+        private const float TriggerSetWidth = 26f;
+        private const float TriggerResetWidth = 36f;
+        private const float TriggerStateWidth = 30f;
+
         private sealed class Row
         {
             public ParameterDef Definition;
@@ -143,16 +148,28 @@ namespace UnityHFSM.Graph.Editor
             };
             nameField.style.flexGrow = 1f;
             nameField.style.flexShrink = 1f;
+            nameField.style.minWidth = 0f;
             nameField.style.marginRight = GraphEditorMetrics.SmallSpacing;
+            nameField.style.overflow = Overflow.Hidden;
+            nameField.tooltip = parameter.name;
             nameField.SetEnabled(IsAuthoring);
             nameField.RegisterValueChangedCallback(evt =>
             {
                 GraphCommandResult result = Commands.Authoring.RenameParameter(parameter.id, evt.newValue);
                 if (!result.Success)
+                {
                     nameField.SetValueWithoutNotify(parameter.name);
+                    nameField.tooltip = parameter.name;
+                }
+                else
+                {
+                    nameField.tooltip = evt.newValue;
+                }
             });
             row.Add(nameField);
             binding.NameField = nameField;
+
+            var valueColumn = CreateValueColumn();
 
             switch (parameter.type)
             {
@@ -163,7 +180,7 @@ namespace UnityHFSM.Graph.Editor
                         value = live && inRuntime ? runtime.GetFloat(runtimeName) : parameter.defaultFloat,
                         isDelayed = true,
                     };
-                    field.style.width = 64f;
+                    ConfigureValueField(field, GraphEditorMetrics.ParametersValueColumnWidth);
                     field.SetEnabled(IsAuthoring || (live && inRuntime));
                     field.RegisterValueChangedCallback(evt =>
                     {
@@ -172,7 +189,7 @@ namespace UnityHFSM.Graph.Editor
                         else if (IsAuthoring)
                             Commands.Authoring.SetParameterFloatDefault(parameter.id, evt.newValue);
                     });
-                    row.Add(field);
+                    valueColumn.Add(field);
                     binding.FloatField = field;
                     break;
                 }
@@ -184,7 +201,7 @@ namespace UnityHFSM.Graph.Editor
                         value = live && inRuntime ? runtime.GetInt(runtimeName) : parameter.defaultInt,
                         isDelayed = true,
                     };
-                    field.style.width = 64f;
+                    ConfigureValueField(field, GraphEditorMetrics.ParametersValueColumnWidth);
                     field.SetEnabled(IsAuthoring || (live && inRuntime));
                     field.RegisterValueChangedCallback(evt =>
                     {
@@ -193,7 +210,7 @@ namespace UnityHFSM.Graph.Editor
                         else if (IsAuthoring)
                             Commands.Authoring.SetParameterIntDefault(parameter.id, evt.newValue);
                     });
-                    row.Add(field);
+                    valueColumn.Add(field);
                     binding.IntField = field;
                     break;
                 }
@@ -205,6 +222,13 @@ namespace UnityHFSM.Graph.Editor
                         value = live && inRuntime ? runtime.GetBool(runtimeName) : parameter.defaultBool,
                     };
                     field.style.width = 20f;
+                    field.style.minWidth = 20f;
+                    field.style.maxWidth = 20f;
+                    field.style.marginLeft = 0f;
+                    field.style.marginRight = 0f;
+                    field.style.marginTop = 0f;
+                    field.style.marginBottom = 0f;
+                    field.style.flexShrink = 0f;
                     field.SetEnabled(IsAuthoring || (live && inRuntime));
                     field.RegisterValueChangedCallback(evt =>
                     {
@@ -213,7 +237,7 @@ namespace UnityHFSM.Graph.Editor
                         else if (IsAuthoring)
                             Commands.Authoring.SetParameterBoolDefault(parameter.id, evt.newValue);
                     });
-                    row.Add(field);
+                    valueColumn.Add(field);
                     binding.BoolField = field;
                     break;
                 }
@@ -222,36 +246,51 @@ namespace UnityHFSM.Graph.Editor
                 {
                     if (live && inRuntime)
                     {
-                        var set = new Button(() => Commands.Runtime.SetTrigger(runtimeName))
-                        {
-                            text = "Set",
-                        };
-                        set.style.height = GraphEditorMetrics.SmallControlHeight;
-                        row.Add(set);
+                        var set = CreateCompactButton(
+                            "Set",
+                            "Set trigger",
+                            TriggerSetWidth,
+                            () => Commands.Runtime.SetTrigger(runtimeName));
+                        set.style.marginRight = GraphEditorMetrics.TinySpacing;
+                        valueColumn.Add(set);
 
-                        var reset = new Button(() => Commands.Runtime.ResetTrigger(runtimeName))
-                        {
-                            text = "Reset",
-                        };
-                        reset.style.height = GraphEditorMetrics.SmallControlHeight;
-                        row.Add(reset);
+                        var reset = CreateCompactButton(
+                            "Reset",
+                            "Reset trigger",
+                            TriggerResetWidth,
+                            () => Commands.Runtime.ResetTrigger(runtimeName));
+                        reset.style.marginRight = GraphEditorMetrics.TinySpacing;
+                        valueColumn.Add(reset);
 
                         var state = GraphEditorStyles.CreateMutedLabel("Reset");
-                        state.style.width = 36f;
-                        state.style.marginLeft = GraphEditorMetrics.TinySpacing;
-                        row.Add(state);
+                        state.style.width = TriggerStateWidth;
+                        state.style.minWidth = TriggerStateWidth;
+                        state.style.maxWidth = TriggerStateWidth;
+                        state.style.fontSize = GraphEditorMetrics.SmallFontSize;
+                        state.style.unityTextAlign = TextAnchor.MiddleCenter;
+                        state.style.marginLeft = 0f;
+                        state.style.marginRight = 0f;
+                        state.style.flexShrink = 0f;
+                        state.tooltip = "Trigger state: Reset";
+                        valueColumn.Add(state);
                         binding.TriggerState = state;
                     }
                     else
                     {
                         var type = GraphEditorStyles.CreateMutedLabel("Trigger");
                         type.style.opacity = 0.7f;
-                        row.Add(type);
+                        type.style.flexShrink = 0f;
+                        type.style.marginLeft = 0f;
+                        type.style.marginRight = 0f;
+                        valueColumn.Add(type);
                     }
 
                     break;
                 }
             }
+
+            row.Add(valueColumn);
+            row.Add(CreateActionColumn(parameter));
 
             if (live)
             {
@@ -261,16 +300,139 @@ namespace UnityHFSM.Graph.Editor
             }
             else if (IsAuthoring)
             {
-                row.tooltip = "Right-click to delete.";
+                row.tooltip = "Right-click or click ⋯ to delete.";
                 row.AddManipulator(new ContextualMenuManipulator(evt =>
                 {
-                    evt.menu.AppendAction("Delete", _ =>
-                        Commands.Authoring.DeleteParameter(parameter.id));
+                    evt.menu.AppendAction("Delete", _ => DeleteParameter(parameter));
                 }));
             }
 
             rows.Add(binding);
             return row;
+        }
+
+        private static void ConfigureValueField(VisualElement field, float width)
+        {
+            field.style.width = width;
+            field.style.minWidth = 0f;
+            field.style.maxWidth = width;
+            field.style.marginLeft = 0f;
+            field.style.marginRight = 0f;
+            field.style.marginTop = 0f;
+            field.style.marginBottom = 0f;
+            field.style.flexShrink = 0f;
+        }
+
+        private static VisualElement CreateValueColumn()
+        {
+            var column = new VisualElement();
+            column.style.width = GraphEditorMetrics.ParametersValueColumnWidth;
+            column.style.minWidth = GraphEditorMetrics.ParametersValueColumnWidth;
+            column.style.maxWidth = GraphEditorMetrics.ParametersValueColumnWidth;
+            column.style.flexDirection = FlexDirection.Row;
+            column.style.alignItems = Align.Center;
+            column.style.flexShrink = 0f;
+            column.style.marginRight = GraphEditorMetrics.TinySpacing;
+            return column;
+        }
+
+        private VisualElement CreateActionColumn(ParameterDef parameter)
+        {
+            var column = new VisualElement();
+            column.style.width = GraphEditorMetrics.ParametersActionColumnWidth;
+            column.style.minWidth = GraphEditorMetrics.ParametersActionColumnWidth;
+            column.style.maxWidth = GraphEditorMetrics.ParametersActionColumnWidth;
+            column.style.flexDirection = FlexDirection.Row;
+            column.style.alignItems = Align.Center;
+            column.style.flexShrink = 0f;
+
+            if (!IsAuthoring)
+                return column;
+
+            var button = new Button { text = "⋯" };
+            button.tooltip = "Delete parameter";
+            button.style.width = GraphEditorMetrics.ParametersActionColumnWidth;
+            button.style.minWidth = GraphEditorMetrics.ParametersActionColumnWidth;
+            button.style.maxWidth = GraphEditorMetrics.ParametersActionColumnWidth;
+            button.style.height = GraphEditorMetrics.SmallControlHeight;
+            button.style.marginLeft = 0f;
+            button.style.marginRight = 0f;
+            button.style.marginTop = 0f;
+            button.style.marginBottom = 0f;
+            button.style.paddingLeft = 0f;
+            button.style.paddingRight = 0f;
+            button.style.paddingTop = 0f;
+            button.style.paddingBottom = 0f;
+            button.style.fontSize = GraphEditorMetrics.FontSize;
+            button.style.flexShrink = 0f;
+
+            float pointerDownTime = -1f;
+            button.RegisterCallback<PointerDownEvent>(evt =>
+            {
+                if (evt.button != 0)
+                    return;
+
+                pointerDownTime = Time.realtimeSinceStartup;
+                ShowRowMenu(parameter, button);
+                evt.StopPropagation();
+            });
+            button.clicked += () =>
+            {
+                if (Time.realtimeSinceStartup - pointerDownTime < 0.25f)
+                    return;
+
+                ShowRowMenu(parameter, button);
+            };
+
+            column.Add(button);
+            return column;
+        }
+
+        private static Button CreateCompactButton(
+            string text,
+            string tooltip,
+            float width,
+            Action onClick)
+        {
+            var button = new Button(onClick) { text = text };
+            button.tooltip = tooltip;
+            button.style.width = width;
+            button.style.minWidth = width;
+            button.style.maxWidth = width;
+            button.style.height = GraphEditorMetrics.SmallControlHeight;
+            button.style.marginLeft = 0f;
+            button.style.marginRight = 0f;
+            button.style.marginTop = 0f;
+            button.style.marginBottom = 0f;
+            button.style.paddingLeft = GraphEditorMetrics.TinySpacing;
+            button.style.paddingRight = GraphEditorMetrics.TinySpacing;
+            button.style.paddingTop = 0f;
+            button.style.paddingBottom = 0f;
+            button.style.fontSize = GraphEditorMetrics.SmallFontSize;
+            button.style.flexShrink = 0f;
+            button.style.whiteSpace = WhiteSpace.NoWrap;
+            button.style.overflow = Overflow.Hidden;
+            button.style.textOverflow = TextOverflow.Ellipsis;
+            button.style.unityTextAlign = TextAnchor.MiddleCenter;
+            return button;
+        }
+
+        private void ShowRowMenu(ParameterDef parameter, VisualElement anchor)
+        {
+            if (!IsAuthoring || Commands == null || parameter == null || anchor == null)
+                return;
+
+            var menu = new GenericDropdownMenu();
+            menu.AddItem("Delete", false, () => DeleteParameter(parameter));
+            menu.DropDown(anchor.worldBound, anchor, DropdownMenuSizeMode.Content);
+        }
+
+        private void DeleteParameter(ParameterDef parameter)
+        {
+            if (Commands == null || parameter == null)
+                return;
+
+            Commands.Authoring.DeleteParameter(parameter.id);
         }
 
         private void UpdateLiveValues()
@@ -299,7 +461,11 @@ namespace UnityHFSM.Graph.Editor
                         break;
                     case BlackboardParameterType.Trigger:
                         if (row.TriggerState != null)
-                            row.TriggerState.text = value.boolValue ? "Set" : "Reset";
+                        {
+                            string stateText = value.boolValue ? "Set" : "Reset";
+                            row.TriggerState.text = stateText;
+                            row.TriggerState.tooltip = "Trigger state: " + stateText;
+                        }
                         break;
                 }
             }

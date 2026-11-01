@@ -5,7 +5,7 @@ namespace UnityHFSM.Graph.Editor
 {
     /// <summary>
     /// Workspace composition and geometry only: Parameters | Canvas | Inspector,
-    /// with a collapsible Console drawer. No interaction logic beyond splitters.
+    /// with a collapsible Diagnostics drawer. No interaction logic beyond splitters.
     /// </summary>
     public sealed class GraphLayoutView : GraphEditorView
     {
@@ -13,7 +13,7 @@ namespace UnityHFSM.Graph.Editor
         private readonly ParametersView parametersView;
         private readonly InspectorView inspectorView;
         private readonly StateMachineGraphView canvas;
-        private readonly GraphConsoleView consoleView;
+        private readonly GraphDiagnosticsView diagnosticsView;
         private readonly ResizableSplitter parametersSplitter;
         private readonly ResizableSplitter inspectorSplitter;
         private readonly ResizableSplitter consoleSplitter;
@@ -63,14 +63,14 @@ namespace UnityHFSM.Graph.Editor
 
             consoleSplitter = new ResizableSplitter(
                 ResizableSplitter.SplitOrientation.Horizontal,
-                consoleView = new GraphConsoleView(),
+                diagnosticsView = new GraphDiagnosticsView(),
                 false,
                 220f,
                 GraphEditorMetrics.ConsoleMinHeight,
                 MaxConsoleHeight,
                 size => Commands?.Layout.SetConsoleHeight(size));
             Add(consoleSplitter);
-            Add(consoleView);
+            Add(diagnosticsView);
 
             workspace.RegisterCallback<GeometryChangedEvent>(_ => ClampLayout());
             RegisterCallback<GeometryChangedEvent>(_ => ClampLayout());
@@ -84,7 +84,7 @@ namespace UnityHFSM.Graph.Editor
             parametersView.Bind(Session, Commands);
             inspectorView.Bind(Session, Commands);
             canvas.Bind(Session, Commands);
-            consoleView.Bind(Session, Commands);
+            diagnosticsView.Bind(Session, Commands);
             ApplyLayout();
         }
 
@@ -96,7 +96,7 @@ namespace UnityHFSM.Graph.Editor
             parametersView.Unbind();
             inspectorView.Unbind();
             canvas.Unbind();
-            consoleView.Unbind();
+            diagnosticsView.Unbind();
         }
 
         protected override void OnSessionChanged(GraphEditorChange change)
@@ -134,7 +134,7 @@ namespace UnityHFSM.Graph.Editor
                 parametersSplitter.style.display = parametersVisible ? DisplayStyle.Flex : DisplayStyle.None;
                 inspectorView.style.display = inspectorVisible ? DisplayStyle.Flex : DisplayStyle.None;
                 inspectorSplitter.style.display = inspectorVisible ? DisplayStyle.Flex : DisplayStyle.None;
-                consoleView.style.display = consoleVisible ? DisplayStyle.Flex : DisplayStyle.None;
+                diagnosticsView.style.display = consoleVisible ? DisplayStyle.Flex : DisplayStyle.None;
                 consoleSplitter.style.display = consoleVisible ? DisplayStyle.Flex : DisplayStyle.None;
 
                 if (parametersVisible)

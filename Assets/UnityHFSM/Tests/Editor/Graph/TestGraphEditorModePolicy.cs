@@ -62,6 +62,32 @@ namespace UnityHFSM.Graph.Tests
         }
 
         [Test]
+        public void DiagnosticsContentFollowsModeAndValidationErrors()
+        {
+            Assert.AreEqual(
+                GraphConsoleTab.Validation,
+                GraphDiagnosticsPolicy.ResolveContent(GraphEditorMode.NoDocument, null));
+            Assert.AreEqual(
+                GraphConsoleTab.Validation,
+                GraphDiagnosticsPolicy.ResolveContent(GraphEditorMode.Author, null));
+            Assert.AreEqual(
+                GraphConsoleTab.RuntimeLog,
+                GraphDiagnosticsPolicy.ResolveContent(GraphEditorMode.Preview, null));
+            Assert.AreEqual(
+                GraphConsoleTab.RuntimeLog,
+                GraphDiagnosticsPolicy.ResolveContent(GraphEditorMode.Live, null));
+            Assert.AreEqual(
+                GraphConsoleTab.RuntimeLog,
+                GraphDiagnosticsPolicy.ResolveContent(GraphEditorMode.LiveNoTarget, null));
+
+            var validation = new GraphValidationResult();
+            validation.AddError("test", "Broken graph.");
+            Assert.AreEqual(
+                GraphConsoleTab.Validation,
+                GraphDiagnosticsPolicy.ResolveContent(GraphEditorMode.Preview, validation));
+        }
+
+        [Test]
         public void ParametersModeFollowsRuntimeAvailability()
         {
             Assert.AreEqual(
